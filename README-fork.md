@@ -38,6 +38,19 @@ python -m dataset.build_arc_dataset \
 ```
 
 **2. Run training (4 GPUs):**
+
+To test it on a small batch size, change global_batch_size:
+
+```bash
+sed -i 's/^global_batch_size:.*/global_batch_size: 16/' config/cfg_pretrain.yaml
+```
+
+```bash
+
+sed -i 's/adam_atan2/adam_atan2_pytorch/g' pretrain.py
+sed -i 's/AdamATan2/AdamAtan2/g' pretrain.py
+sed -i 's/lr=0,/lr=0.0001,/g' pretrain.py
+
 ```bash
 run_name="pretrain_att_arc2concept_4"
 torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
