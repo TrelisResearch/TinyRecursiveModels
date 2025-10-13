@@ -102,3 +102,7 @@ Plus the same training metrics computed on the eval set.
 - `puzzle_emb_lr: 1e-2`
 - `checkpoint_every_eval: True`
 - Loss function: `stablemax_cross_entropy` (more stable than softmax for this task)
+
+### Push trained model to HF
+
+Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
