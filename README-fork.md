@@ -1,7 +1,7 @@
 # Additional Documentation
 
 ## Runpod One-click Template
-Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=1urgylpi1x&ref=jmfkcdio). Note: This is a Trelis template and is an affiliate link.
+Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=48ljlepwgz&ref=yz678na8). Note: This is a Trelis template and is an affiliate link.
 
 ## Container Setup
 
