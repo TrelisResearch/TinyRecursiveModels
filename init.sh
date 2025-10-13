@@ -1,36 +1,3 @@
-# ── 1b · OpenSSH server (VS Code Remote-SSH needs TCP forwarding) ───────────
-# Harden + allow forwarding
-mkdir -p /var/run/sshd
-if ! grep -q "^Port " /etc/ssh/sshd_config; then
-  echo "Port 22" >> /etc/ssh/sshd_config
-fi
-# Disable passwords; allow key-only login and TCP forwarding
-sed -i "s/^#\?PasswordAuthentication .*/PasswordAuthentication no/" /etc/ssh/sshd_config
-sed -i "s/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/" /etc/ssh/sshd_config
-if ! grep -q "^AllowTcpForwarding " /etc/ssh/sshd_config; then
-  echo "AllowTcpForwarding yes" >> /etc/ssh/sshd_config
-else
-  sed -i "s/^AllowTcpForwarding .*/AllowTcpForwarding yes/" /etc/ssh/sshd_config
-fi
-# Keep the connection healthy
-if ! grep -q "^ClientAliveInterval " /etc/ssh/sshd_config; then
-  echo "ClientAliveInterval 30" >> /etc/ssh/sshd_config
-  echo "ClientAliveCountMax 3" >> /etc/ssh/sshd_config
-fi
-
-# Install your public key
-mkdir -p /root/.ssh && chmod 700 /root/.ssh
-touch /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
-if [ -n "${SSH_PUBKEY:-}" ]; then
-  if ! grep -qF "$SSH_PUBKEY" /root/.ssh/authorized_keys; then
-    echo "$SSH_PUBKEY" >> /root/.ssh/authorized_keys
-  fi
-fi
-
-# Start sshd in the background (service will daemonize; fall back if needed)
-service ssh start || /usr/sbin/sshd -D &
-
-
 
 # ── 4 · uv + venv ───────────────────────────────────────────────────────────
 python -m pip install --upgrade --no-cache-dir uv
@@ -48,8 +15,8 @@ uv pip install --upgrade pip wheel setuptools
 
 # ── 5 · CUDA 12.6 PyTorch nightly (as specified in README) ──────────────────
 export PYTORCH_INDEX_URL="https://download.pytorch.org/whl/nightly/cu126"
-uv pip install --upgrade --extra-index-url "$PYTORCH_INDEX_URL" "torch==2.8.*"
 uv pip install --pre --upgrade --no-cache-dir torchvision torchaudio --index-url "$PYTORCH_INDEX_URL" 
+uv pip install --upgrade --extra-index-url "$PYTORCH_INDEX_URL" "torch==2.8.*"
 
 # ── 6 · Build helpers ───────────────────────────────────────────────────────
 uv pip install --upgrade --no-cache-dir packaging ninja wheel setuptools setuptools-scm numba huggingface_hub
