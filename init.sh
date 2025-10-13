@@ -15,8 +15,8 @@ uv pip install --upgrade pip wheel setuptools
 
 # ── 5 · CUDA 12.6 PyTorch nightly (as specified in README) ──────────────────
 export PYTORCH_INDEX_URL="https://download.pytorch.org/whl/nightly/cu126"
-uv pip install --pre --upgrade --no-cache-dir torchvision torchaudio --index-url "$PYTORCH_INDEX_URL" 
 uv pip install --upgrade --extra-index-url "$PYTORCH_INDEX_URL" "torch==2.8.*"
+uv pip install --pre --upgrade --no-cache-dir torchvision torchaudio --index-url "$PYTORCH_INDEX_URL" 
 
 # ── 6 · Build helpers ───────────────────────────────────────────────────────
 uv pip install --upgrade --no-cache-dir packaging ninja wheel setuptools setuptools-scm numba huggingface_hub
@@ -26,6 +26,7 @@ uv pip install --no-cache-dir psutil
 
 # ── 8 · FlashAttention (for efficient attention) ────────────────────────────
 # from https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3
+uv pip install torch==2.8.0
 uv pip install \
 https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
 
