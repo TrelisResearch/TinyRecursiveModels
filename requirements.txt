@@ -1,4 +1,5 @@
-torch
+torch>=2.8.0
+numpy
 adam-atan2
 einops
 tqdm
@@ -15,6 +16,8 @@ wheel
 setuptools 
 setuptools-scm
 pydantic-core
-huggingface_hub 
 numba
 triton
+# trackio
+ipdb
+huggingface_hub[cli]
