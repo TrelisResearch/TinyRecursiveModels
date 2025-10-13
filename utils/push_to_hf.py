@@ -5,7 +5,7 @@ optionally under an organization, with private/public visibility.
 
 Examples:
   python push_to_hf.py \
-    --repo-id quantexa/my-awesome-model \
+    --repo-id my-org/my-awesome-model \
     --model-dir ./my_model \
     --private
 
@@ -101,7 +101,7 @@ def main():
     parser.add_argument(
         "--repo-id",
         required=True,
-        help="Target repo ID in the form ORG_OR_USER/REPO_NAME (e.g., quantexa/my-model).",
+        help="Target repo ID in the form ORG_OR_USER/REPO_NAME (e.g., my-org/my-model).",
     )
     parser.add_argument(
         "--model-dir",
