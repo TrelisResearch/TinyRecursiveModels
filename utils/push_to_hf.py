@@ -4,12 +4,13 @@ push_to_hf.py — Create (if needed) and upload a model folder to Hugging Face,
 optionally under an organization, with private/public visibility.
 
 Examples:
-  python push_to_hf.py \
-    --repo-id my-org/my-awesome-model \
-    --model-dir ./my_model \
+  python utils/push_to_hf.py \
+    --repo-id Trelis/test-Arc2concept-aug-1000-ACT-torch_pretrain_att_arc2concept_4 \
+    --model-dir ./checkpoints/Arc2concept-aug-1000-ACT-torch/pretrain_att_arc2concept_4 \
+    --commit-message "Test upload" \
     --private
 
-  python push_to_hf.py \
+  python utils/push_to_hf.py \
     --repo-id my-org/bert-mini-est \
     --model-dir /path/to/checkpoint \
     --public \
@@ -203,7 +204,7 @@ def main():
             commit_message=args.commit_message,
             token=token,
             revision=args.branch,  # can be None
-            allow_external_storage=args.allow_external_storage,
+            # allow_external_storage=args.allow_external_storage,
         )
         # commit_info is a CommitInfo object with .commit_url, .oid, etc.
         print("Upload complete.")
