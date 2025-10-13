@@ -68,6 +68,7 @@ class PretrainConfig(pydantic.BaseModel):
     # Names
     project_name: Optional[str] = None
     run_name: Optional[str] = None
+    entity: Optional[str] = None  # wandb entity
     load_checkpoint: Optional[str] = None
     checkpoint_path: Optional[str] = None
 
@@ -586,7 +587,13 @@ def launch(hydra_config: DictConfig):
     ema_helper = None
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
-        wandb.init(project=config.project_name, name=config.run_name, config=config.model_dump(), settings=wandb.Settings(_disable_stats=True))  # type: ignore
+        wandb.init(
+            project=config.project_name, 
+            entity=config.entity,
+            name=config.run_name, 
+            config=config.model_dump(), 
+            settings=wandb.Settings(_disable_stats=True)
+        )  # type: ignore
         wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
         save_code_and_config(config)
     if config.ema:
