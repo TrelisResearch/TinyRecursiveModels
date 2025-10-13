@@ -75,6 +75,7 @@ class PretrainConfig(pydantic.BaseModel):
     # Extras
     seed: int = 0
     checkpoint_every_eval: bool = False
+    checkpoint_every_n_steps: Optional[int] = None
     eval_interval: Optional[int] = None
     min_eval_interval: Optional[int] = 0 # when to start eval
     eval_save_outputs: List[str] = []
@@ -617,6 +618,12 @@ def launch(hydra_config: DictConfig):
                 progress_bar.update(train_state.step - progress_bar.n)  # type: ignore
             if config.ema:
                 ema_helper.update(train_state.model)
+            if (
+                RANK == 0
+                and config.checkpoint_every_n_steps is not None
+                and train_state.step % config.checkpoint_every_n_steps == 0
+            ):
+                save_train_state(config, train_state)
 
         if _iter_id >= config.min_eval_interval:
             ############ Evaluation
