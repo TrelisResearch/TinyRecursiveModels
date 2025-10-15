@@ -1,3 +1,6 @@
+# ── 3b · byobu ───────────────────────────────────────────────────────────
+DEBIAN_FRONTEND=noninteractive apt-get install -y byobu
+byobu-enable
 
 # ── 4 · uv + venv ───────────────────────────────────────────────────────────
 python -m pip install --upgrade --no-cache-dir uv
