@@ -1,7 +1,7 @@
 # Additional Documentation
 
 ## Runpod One-click Template
-Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=48ljlepwgz&ref=yz678na8). Note: This is a Trelis template and is an affiliate link.
+Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=1urgylpi1x&ref=jmfkcdio)). Note: This is a Trelis template and is an affiliate link.
 
 ## Container Setup
 
@@ -37,25 +37,22 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2
 ```
 
-**2. Run training (4 GPUs):**
+**2. Run training (8 GPUs):**
 
+```bash
+run_name="pretrain_att_arc2concept"
+torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
++run_name=${run_name}
+```
+
+**Runtime:** ~3 days on 8x H100 GPUs
+
+*Other options:*
 To test it on a small batch size, change global_batch_size:
 
 ```bash
 sed -i 's/^global_batch_size:.*/global_batch_size: 16/' config/cfg_pretrain.yaml
 ```
-
-```bash
-run_name="pretrain_att_arc2concept_4"
-torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-arch=trm \
-data_paths="[data/arc2concept-aug-1000]" \
-arch.L_layers=2 \
-arch.H_cycles=3 arch.L_cycles=4 \
-+run_name=${run_name} ema=True
-```
-
-**Runtime:** ~3 days on 4x H100 GPUs
 
 ### Evaluation Schedule
 
