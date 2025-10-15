@@ -40,10 +40,12 @@ python -m dataset.build_arc_dataset \
 **2. Run training (8 GPUs):**
 
 ```bash
+git switch lo-width
 run_name="pretrain_arc2concept_lo-width"
-torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-+run_name=${run_name}
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
++run_name=${run_name} > lo-width.log &
 ```
+Expected runtime on 8xH200 is: 
 
 **Runtime:** ~3 days on 8x H100 GPUs
 
