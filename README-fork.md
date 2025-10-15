@@ -40,7 +40,7 @@ python -m dataset.build_arc_dataset \
 **2. Run training (8 GPUs):**
 
 ```bash
-run_name="pretrain_att_arc2concept"
+run_name="pretrain_arc2concept_lo-width"
 torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
 +run_name=${run_name}
 ```
@@ -48,10 +48,12 @@ torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nn
 **Runtime:** ~3 days on 8x H100 GPUs
 
 *Other options:*
-To test it on a small batch size, change global_batch_size:
-
+To test it on a small batch size, change global_batch_size and then run on a single GPU:
 ```bash
 sed -i 's/^global_batch_size:.*/global_batch_size: 16/' config/cfg_pretrain.yaml
+run_name="pretrain_arc2concept_lo-width-TEST"
+torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
++run_name=${run_name}
 ```
 
 ### Evaluation Schedule
@@ -95,10 +97,12 @@ Plus the same training metrics computed on the eval set.
 - `global_batch_size: 768`
 - `epochs: 100000`
 - `eval_interval: 10000`
-- `lr: 1e-4`
-- `puzzle_emb_lr: 1e-2`
+- `lr: 1.5e-4` (increased 1.5x for smaller model)
+- `puzzle_emb_lr: 1.5e-2` (increased 1.5x for smaller model)
 - `checkpoint_every_eval: True`
+- `ema: True` (Exponential Moving Average enabled)
 - Loss function: `stablemax_cross_entropy` (more stable than softmax for this task)
+- Architecture: `hidden_size: 256, num_heads: 4` (2x smaller than baseline)
 
 ### Push trained model to HF
 
