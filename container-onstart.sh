@@ -29,7 +29,6 @@ else
   fi
 fi
 cd TinyRecursiveModels
-git checkout reproduction
 
 bash init.sh
 '
