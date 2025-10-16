@@ -88,6 +88,12 @@ class PretrainConfig(pydantic.BaseModel):
     ema_rate: float = 0.999 # EMA-rate
     freeze_weights: bool = False # If True, freeze weights and only learn the embeddings
 
+    # Dataloader controls
+    dataloader_num_workers: int = 1
+    dataloader_prefetch_factor: int = 8
+    dataloader_pin_memory: bool = True
+    dataloader_persistent_workers: bool = True
+
 @dataclass
 class TrainState:
     model: nn.Module
