@@ -1,4 +1,5 @@
-from typing import Tuple
+from typing import Tuple, Optional
+import math
 import einops
 import torch
 from torch import nn
@@ -56,8 +57,74 @@ class CastedLinear(nn.Module):
             # Zero init bias
             self.bias = nn.Parameter(torch.zeros((out_features, )))
 
+        # LoRA members (disabled by default)
+        self._lora_rank: int = 0
+        self._lora_alpha: float = 1.0
+        self._lora_scaling: float = 1.0
+        self._lora_dropout: Optional[nn.Module] = None
+        self._lora_A: Optional[nn.Parameter] = None
+        self._lora_B: Optional[nn.Parameter] = None
+        self._lora_train_base: bool = True
+        self._lora_train_bias: bool = True
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight.to(input.dtype), bias=self.bias.to(input.dtype) if self.bias is not None else None)
+        result = F.linear(
+            input,
+            self.weight.to(input.dtype),
+            bias=self.bias.to(input.dtype) if self.bias is not None else None
+        )
+
+        if self._lora_rank > 0 and self._lora_A is not None and self._lora_B is not None:
+            lora_input = input
+            if self._lora_dropout is not None:
+                lora_input = self._lora_dropout(lora_input)
+
+            lora_input_fp = lora_input.to(self._lora_A.dtype)
+            # Project down then up using LoRA factors
+            lora_down = F.linear(lora_input_fp, self._lora_A.t())
+            lora_update = F.linear(lora_down, self._lora_B.t())
+            result = result + lora_update.to(result.dtype) * self._lora_scaling
+
+        return result
+
+    def enable_lora(self,
+                    rank: int,
+                    alpha: Optional[float] = None,
+                    dropout: float = 0.0,
+                    train_base: bool = False,
+                    train_bias: bool = False) -> None:
+        if rank <= 0:
+            return
+
+        if self._lora_rank > 0:
+            raise RuntimeError("LoRA already enabled for this CastedLinear instance.")
+
+        in_features = self.weight.shape[1]
+        out_features = self.weight.shape[0]
+
+        self._lora_rank = rank
+        self._lora_alpha = float(alpha if alpha is not None else rank)
+        self._lora_scaling = self._lora_alpha / self._lora_rank
+        self._lora_dropout = nn.Identity() if dropout <= 0 else nn.Dropout(p=dropout)
+        self._lora_train_base = train_base
+        self._lora_train_bias = train_bias
+
+        # LoRA factor matrices
+        self._lora_A = nn.Parameter(torch.zeros((rank, in_features)))
+        self._lora_B = nn.Parameter(torch.zeros((out_features, rank)))
+
+        # Initialization following LoRA paper recommendations
+        nn.init.kaiming_uniform_(self._lora_A, a=math.sqrt(5))
+        nn.init.zeros_(self._lora_B)
+
+        if not self._lora_train_base:
+            self.weight.requires_grad = False
+        if self.bias is not None and not self._lora_train_bias:
+            self.bias.requires_grad = False
+
+    @property
+    def lora_rank(self) -> int:
+        return self._lora_rank
 
 
 class CastedEmbedding(nn.Module):

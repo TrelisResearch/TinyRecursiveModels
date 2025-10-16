@@ -104,6 +104,30 @@ Plus the same training metrics computed on the eval set.
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
+## LoRA Fine-Tuning (Adapter-Only Training)
+- **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
+```bash
+huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
+```
+- **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
+```bash
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval-lora-aug-1000 \
+  --subsets evaluation2 \
+  --test-set-name evaluation2
+```
+- **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
+```bash
+run_name="lora_arc_eval_ft"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain_lora \
+  data_paths="[data/arc-eval-lora-aug-1000]" \
+  load_checkpoint=pretrained/step_217602 \
+  +run_name=${run_name} > lora.log &
+```
+  This attaches rank-1 adapters (alpha 16), keeps embeddings trainable (`puzzle_emb_lr: 1e-2`), leaves EMA off, and logs submissions every eval pass. No merge step is required for inference—just keep the base checkpoint alongside the LoRA state; merge the low-rank deltas only if you need dense weights.
+
 ## Continued Pretraining on ARC Evaluation Tasks
 - **Download checkpoint:** Grab the published ARC checkpoint (e.g. `Sanjin2024/TinyRecursiveModels-ARC-AGI-2`) with `git lfs` or `huggingface-cli`. Keep the accompanying `all_config.yaml` handy so you can mirror the architecture, optimizer, and embedding hyperparameters that were used to produce the weights. As follows:
 ```bash
