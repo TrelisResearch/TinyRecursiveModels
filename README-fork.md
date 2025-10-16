@@ -105,8 +105,11 @@ Plus the same training metrics computed on the eval set.
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## Continued Pretraining on ARC Evaluation Tasks
-- **Download checkpoint:** Grab the published ARC checkpoint (e.g. `Sanjin2024/TinyRecursiveModels-ARC-AGI-2`) with `git lfs` or `huggingface-cli`. Keep the accompanying `all_config.yaml` handy so you can mirror the architecture, optimizer, and embedding hyperparameters that were used to produce the weights.
-- **Match the config:** The checkpoint expects the same architecture (`arch=trm`, hidden size 512, etc.). The dedicated post-train config at `config/cfg_emb_posttrain.yaml` keeps the architecture fixed while shrinking runtime settings—`global_batch_size: 96`, `epochs: 10000`, `lr: 1.25e-5`, `puzzle_emb_lr: 1.25e-3`, warmup 200 steps, eval every 125 epochs, and `freeze_weights: True` so only the puzzle embeddings update. Adjust those numbers if you need different scaling, but do not change the structural fields unless you know they match the checkpoint.
+- **Download checkpoint:** Grab the published ARC checkpoint (e.g. `Sanjin2024/TinyRecursiveModels-ARC-AGI-2`) with `git lfs` or `huggingface-cli`. Keep the accompanying `all_config.yaml` handy so you can mirror the architecture, optimizer, and embedding hyperparameters that were used to produce the weights. As follows:
+```bash
+huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
+```
+- **Match the config:** The checkpoint expects the same architecture (`arch=trm`, hidden size 512, etc.). The dedicated post-train config at `config/cfg_emb_posttrain.yaml` keeps the architecture fixed while shrinking runtime settings—`global_batch_size: 96`, `epochs: 10000`, `lr: 1.25e-5`, `puzzle_emb_lr: 1.25e-3`, warmup 200 steps, eval every 1000 epochs, `freeze_weights: True` so only the puzzle embeddings update, and `ema: False` to avoid maintaining a duplicate embedding table. Adjust those numbers if you need different scaling, but do not change the structural fields unless you know they match the checkpoint.
 - **Rebuild evaluation-only data:** Use the ARC builder to generate a dataset that contains only the evaluation puzzles you want to adapt on while holding out their test grids for evaluation. Both `arc-agi_evaluation_challenges.json` and `arc-agi_manual_evaluation_challenges.json` follow the same schema (`{"train": [...], "test": [...]}` with `test` entries containing just `"input"`), so the builder can treat their `test` examples as the evaluation split:
 ```bash
 uv run python -m dataset.build_arc_dataset \
@@ -119,10 +122,10 @@ uv run python -m dataset.build_arc_dataset \
   Adjust `--num-aug` downward if you do not want a million-row embedding table.
 - **Launch continued training:** Point `pretrain.py` at the new dataset and supply the checkpoint using the post-train config. Example (single node, 4 GPUs):
 ```bash
-run_name="pretrain_eval_continue"
-torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+run_name="post-train-embs-manual"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_emb_posttrain \
   +run_name=${run_name} \
-  load_checkpoint=/path/to/step_217602
+  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_217602 > pt-manual.log &
 ```
   Override knobs inline (e.g. `lr=...`) if you need to deviate from `cfg_emb_posttrain.yaml`; keep the architecture consistent so the checkpoint loads cleanly. If you change the effective batch size, scale the learning rates accordingly.

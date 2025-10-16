@@ -13,6 +13,9 @@ entity: "trelis"
 data_paths: ['data/arc-manual-eval-aug-1000']
 data_paths_test: ['data/arc-manual-eval-aug-1000']
 
+load_checkpoint: null
+checkpoint_path: null
+
 evaluators:
   - name: arc@ARC
 
