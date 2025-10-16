@@ -23,6 +23,10 @@ from utils.functions import load_model_class, get_model_source_path
 from models.sparse_embedding import CastedSparseEmbeddingSignSGD_Distributed
 from models.ema import EMAHelper
 
+# Enable TF32 tensor cores on compatible GPUs (e.g., L4, H100) for faster matmuls.
+if hasattr(torch, "set_float32_matmul_precision"):
+    torch.set_float32_matmul_precision("high")
+
 
 class LossConfig(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra='allow')
@@ -106,10 +110,10 @@ def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size:
     dataloader = DataLoader(
         dataset,
         batch_size=None,
-        num_workers=1,
-        prefetch_factor=8,
-        pin_memory=True,
-        persistent_workers=True
+        num_workers=getattr(config, "dataloader_num_workers", 4),
+        prefetch_factor=getattr(config, "dataloader_prefetch_factor", 8),
+        pin_memory=getattr(config, "dataloader_pin_memory", True),
+        persistent_workers=getattr(config, "dataloader_persistent_workers", True)
     )
     return dataloader, dataset.metadata
 
