@@ -105,6 +105,7 @@ Plus the same training metrics computed on the eval set.
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## LoRA Fine-Tuning (Adapter-Only Training)
+> Scores TBD
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
@@ -130,6 +131,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_
   This attaches rank-1 adapters (alpha 16), keeps embeddings trainable (`puzzle_emb_lr: 1e-2`), leaves EMA off, and logs submissions every eval pass. No merge step is required for inference—just keep the base checkpoint alongside the LoRA state; merge the low-rank deltas only if you need dense weights.
 
 ## Continued Pretraining on ARC Evaluation Tasks
+> Scores 6.5% pass@2 on manual tasks, with aa2 pre-trained model.
 - **Download checkpoint:** Grab the published ARC checkpoint (e.g. `Sanjin2024/TinyRecursiveModels-ARC-AGI-2`) with `git lfs` or `huggingface-cli`. Keep the accompanying `all_config.yaml` handy so you can mirror the architecture, optimizer, and embedding hyperparameters that were used to produce the weights. As follows:
 ```bash
 huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
