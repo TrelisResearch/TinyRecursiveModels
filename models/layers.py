@@ -81,8 +81,8 @@ class CastedLinear(nn.Module):
 
             lora_input_fp = lora_input.to(self._lora_A.dtype)
             # Project down then up using LoRA factors
-            lora_down = F.linear(lora_input_fp, self._lora_A.t())
-            lora_update = F.linear(lora_down, self._lora_B.t())
+            lora_down = F.linear(lora_input_fp, self._lora_A)
+            lora_update = F.linear(lora_down, self._lora_B)
             result = result + lora_update.to(result.dtype) * self._lora_scaling
 
         return result
