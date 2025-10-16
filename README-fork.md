@@ -122,7 +122,7 @@ python -m dataset.build_arc_dataset \
 ```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_manual_pt"
+run_name="lora_manual_pt_wgt-eval"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
   load_checkpoint=pretrained/step_217602 \

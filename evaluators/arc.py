@@ -1,6 +1,7 @@
 from typing import Dict, Sequence, Optional
 import os
 import json
+import math
 
 import torch
 import numpy as np
@@ -38,6 +39,7 @@ def _crop(grid: np.ndarray):
 
 class ARC:
     required_outputs = {"inputs", "puzzle_identifiers", "q_halt_logits", "preds"}
+    _LOG_EPS = 1e-6
     
     def __init__(self, data_path: str, 
         eval_metadata: PuzzleDatasetMetadata, 
@@ -124,33 +126,38 @@ class ARC:
                 input_hash = grid_hash(arc_grid_to_np(pair["input"]))
                 label_hash = grid_hash(arc_grid_to_np(pair["output"]))
                 
-                p_map = {}
+                p_map: Dict[str, list] = {}
                 for hmap, preds in global_hmap_preds:  # type: ignore
-                    for h, q in preds.get(name, {}).get(input_hash, {}):
-                        p_map.setdefault(h, [0, 0])
-                        p_map[h][0] += 1
-                        p_map[h][1] += q
+                    for h, q in preds.get(name, {}).get(input_hash, []):
+                        stats = p_map.setdefault(h, [0, 0.0])
+                        stats[0] += 1
+                        q_clamped = min(max(q, self._LOG_EPS), 1.0 - self._LOG_EPS)
+                        stats[1] += math.log1p(-q_clamped)
                         
                 if not len(p_map):
                     print (f"Puzzle {name} has no predictions.")
                     continue
 
+                candidates = []
                 for h, stats in p_map.items():
-                    stats[1] /= stats[0]
-                    
-                p_map = sorted(p_map.items(), key=lambda kv: kv[1], reverse=True)
+                    count, log_fail_sum = stats
+                    fail_prob = math.exp(log_fail_sum)
+                    combined_prob = 1.0 - fail_prob
+                    candidates.append((h, combined_prob, count))
+
+                candidates.sort(key=lambda x: (x[1], x[2]), reverse=True)
 
                 # vote for different Ks
                 for i, k in enumerate(self.pass_Ks):
                     ok = False
-                    for h, stats in p_map[:k]:
+                    for h, _, _ in candidates[:k]:
                         ok |= h == label_hash
                         
                     num_test_correct[i] += ok
                     
                 # Query grids
                 pred_grids = []
-                for h, stats in p_map[:self.submission_K]:
+                for h, _, _ in candidates[:self.submission_K]:
                     for hmap, preds in global_hmap_preds:  # type: ignore
                         if h in hmap:
                             pred_grids.append(hmap[h])
