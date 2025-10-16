@@ -20,14 +20,14 @@ evaluators:
   - name: arc@ARC
 
 # Hyperparams - Training
-global_batch_size: 768
+global_batch_size: 96
 
 epochs: 12500
 eval_interval: 1250
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
-lr: 1e-4
+lr: 1.25e-5
 lr_min_ratio: 1.0
 lr_warmup_steps: 200
 
@@ -38,7 +38,7 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1e-2
+puzzle_emb_lr: 1.25e-3
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
