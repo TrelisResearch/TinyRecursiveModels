@@ -110,19 +110,20 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
 ```
 - **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
+  The LoRA config already targets `data/arc-manual-eval-aug-1000`; rebuild it only if you still need the dataset:
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc-eval-lora-aug-1000 \
-  --subsets evaluation2 \
-  --test-set-name evaluation2
+  --output-dir data/arc-manual-eval-aug-1000 \
+  --subsets manual_evaluation \
+  --test-set-name manual_evaluation \
+  --num-aug 1000
 ```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_arc_eval_ft"
+run_name="lora_manual_pt"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
-  data_paths="[data/arc-eval-lora-aug-1000]" \
   load_checkpoint=pretrained/step_217602 \
   +run_name=${run_name} > lora.log &
 ```

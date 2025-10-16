@@ -260,7 +260,11 @@ def load_checkpoint(model: nn.Module, config: PretrainConfig):
                 state_dict[puzzle_emb_name] = (
                     torch.mean(puzzle_emb, dim=0, keepdim=True).expand(expected_shape).contiguous()
                 )
-        model.load_state_dict(state_dict, assign=True)
+        missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False, assign=True)
+        if len(unexpected_keys):
+            print(f"Warning: unexpected checkpoint keys skipped: {unexpected_keys[:5]}{'...' if len(unexpected_keys) > 5 else ''}")
+        if len(missing_keys):
+            print(f"Warning: missing checkpoint keys initialized from defaults: {missing_keys[:5]}{'...' if len(missing_keys) > 5 else ''}")
 
 
 def compute_lr(base_lr: float, config: PretrainConfig, train_state: TrainState):
