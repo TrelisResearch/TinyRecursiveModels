@@ -108,6 +108,7 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 > Scores TBD
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
+uv pip install hf_transfer
 huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
 ```
 - **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
