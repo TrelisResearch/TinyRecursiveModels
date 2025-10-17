@@ -31,14 +31,14 @@ dataloader_pin_memory: true
 dataloader_persistent_workers: false
 
 # Hyperparams - Training
-global_batch_size: 96
+global_batch_size: 48
 
 epochs: 6250
 eval_interval: 6250
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
-lr: 1.25e-5
+lr: 0.625e-5
 lr_min_ratio: 1.0
 lr_warmup_steps: 200
 
@@ -49,7 +49,7 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1.25e-3
+puzzle_emb_lr: 0.625e-3
 
 seed: 0
 min_eval_interval: 0
