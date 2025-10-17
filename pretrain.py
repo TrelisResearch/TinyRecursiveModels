@@ -386,7 +386,7 @@ def evaluate(
 
         save_preds = {}
 
-        metric_keys = []
+        metric_keys = None
         metric_values = None
 
         carry = None
@@ -455,10 +455,27 @@ def evaluate(
 
         del save_preds
 
+        # Synchronize metric structures across ranks so every process participates in collectives
+        if world_size > 1:
+            gathered_keys = [None for _ in range(world_size)]
+            dist.all_gather_object(gathered_keys, metric_keys)
+            metric_keys = next((k for k in gathered_keys if k is not None), None)
+
+        if metric_keys is None:
+            metric_keys = []
+
+        if metric_values is None:
+            metric_values = torch.zeros(
+                (len(set_ids), len(metric_keys)), dtype=torch.float32, device="cuda"
+            )
+
         # Reduce to rank 0
         if metric_values is not None:
             if world_size > 1:
-                dist.reduce(metric_values, dst=0)
+                if metric_values.numel() == 0:
+                    dist.barrier()
+                else:
+                    dist.reduce(metric_values, dst=0)
 
             if rank == 0:
                 reduced_metrics = metric_values.cpu().numpy()
