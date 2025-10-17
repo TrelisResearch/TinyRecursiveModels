@@ -143,14 +143,14 @@ hf download Trelis/TRM-ARC-AGI-II \
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2-test-aug-48 \
+  --output-dir data/arc2-test-aug-256 \
   --subsets test \
   --test-set-name test \
-  --num-aug 48
+  --num-aug 256
 ```
 - **Run training:** 
 ```bash
-run_name="kaggle-lora-test-48a-512e"
+run_name="kaggle-lora-test-256a-8e"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py --config-name cfg_kaggle_lora load_checkpoint=pretrained/step_723914 +run_name=${run_name} > lora.log &
 ```
 
