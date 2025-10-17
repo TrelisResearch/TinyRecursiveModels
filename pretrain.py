@@ -1,4 +1,4 @@
-from typing import Optional, Any, Sequence, List, Tuple
+from typing import Optional, Any, Sequence, List, Tuple, Type
 from dataclasses import dataclass
 import os
 import math
@@ -154,6 +154,38 @@ def _norm_param_names(model: nn.Module) -> set[str]:
     return norm_names
 
 
+def _embedding_and_head_param_names(model: nn.Module) -> Tuple[set[str], set[str]]:
+    embedding_param_names: set[str] = set()
+    head_param_names: set[str] = set()
+
+    embedding_types: List[Type[nn.Module]] = [nn.Embedding]
+    try:  # Optional dependency; avoid hard failure during import.
+        from models.layers import CastedEmbedding  # type: ignore
+        embedding_types.append(CastedEmbedding)
+    except Exception:
+        pass
+    try:
+        from models.sparse_embedding import CastedSparseEmbedding  # type: ignore
+        embedding_types.append(CastedSparseEmbedding)
+    except Exception:
+        pass
+
+    embedding_types_tuple = tuple(embedding_types)
+
+    for module_name, module in model.named_modules():
+        local_params = list(module.named_parameters(recurse=False))
+        if not local_params:
+            continue
+        for param_name, _ in local_params:
+            full_name = f"{module_name}.{param_name}" if module_name else param_name
+            if isinstance(module, embedding_types_tuple):
+                embedding_param_names.add(full_name)
+            elif module_name.split(".")[-1] in {"lm_head", "q_head"}:
+                head_param_names.add(full_name)
+
+    return embedding_param_names, head_param_names
+
+
 def _build_dense_optimizers(model: nn.Module, config: PretrainConfig) -> Tuple[List[torch.optim.Optimizer], List[float]]:
     """Create optimizer(s) for dense parameters based on config."""
     optimizers: List[torch.optim.Optimizer] = []
@@ -182,6 +214,7 @@ def _build_dense_optimizers(model: nn.Module, config: PretrainConfig) -> Tuple[L
         no_wd_params: List[torch.nn.Parameter] = []
         adamw_init_sig = inspect.signature(torch.optim.AdamW.__init__)
         norm_names = _norm_param_names(model)
+        embedding_param_names, head_param_names = _embedding_and_head_param_names(model)
 
         def _log_param_groups():
             total = lambda tensors: sum(p.numel() for p in tensors)
@@ -224,11 +257,18 @@ def _build_dense_optimizers(model: nn.Module, config: PretrainConfig) -> Tuple[L
             if "_lora_" in name:
                 no_wd_params.append(param)
                 continue
-            if param.ndim >= 2 and not any(token in name for token in ("embed", "lm_head", "norm", "bias")):
+            is_embedding = name in embedding_param_names
+            is_head = name in head_param_names
+            is_norm = name in norm_names
+            is_bias = name.endswith(".bias")
+
+            if param.ndim >= 2 and not (is_embedding or is_head or is_norm or is_bias):
                 muon_params.append(param)
             else:
-                if (name in norm_names) or name.endswith(".bias"):
+                if is_norm or is_bias:
                     no_wd_params.append(param)
+                elif is_embedding or is_head:
+                    emb_head_params.append(param)
                 else:
                     emb_head_params.append(param)
 
