@@ -1,6 +1,7 @@
 torch>=2.8.0
 numpy
 adam-atan2
+muon-optimizer @ git+https://github.com/KellerJordan/Muon
 einops
 tqdm
 coolname

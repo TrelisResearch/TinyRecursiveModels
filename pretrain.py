@@ -1,4 +1,4 @@
-from typing import Optional, Any, Sequence, List
+from typing import Optional, Any, Sequence, List, Tuple
 from dataclasses import dataclass
 import os
 import math
@@ -7,6 +7,7 @@ import shutil
 import copy
 
 import torch
+import inspect
 import torch.distributed as dist
 from torch import nn
 from torch.utils.data import DataLoader
@@ -24,6 +25,10 @@ import hydra
 import pydantic
 from omegaconf import DictConfig
 from adam_atan2_pytorch import AdamAtan2
+try:
+    from muon import Muon  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    Muon = None
 from puzzle_dataset import PuzzleDataset, PuzzleDatasetConfig, PuzzleDatasetMetadata
 from utils.functions import load_model_class, get_model_source_path
 from models.sparse_embedding import CastedSparseEmbeddingSignSGD_Distributed
@@ -70,6 +75,8 @@ class PretrainConfig(pydantic.BaseModel):
     weight_decay: float
     beta1: float
     beta2: float
+
+    optimizer: str = "muon"
 
     # Puzzle embedding
     puzzle_emb_lr: float
@@ -130,6 +137,132 @@ def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size:
     return dataloader, dataset.metadata
 
 
+def _norm_param_names(model: nn.Module) -> set[str]:
+    norm_types = (
+        nn.LayerNorm,
+        nn.GroupNorm,
+        nn.BatchNorm1d,
+        nn.BatchNorm2d,
+        nn.BatchNorm3d,
+    )
+    norm_names: set[str] = set()
+    for module_name, module in model.named_modules():
+        if isinstance(module, norm_types):
+            for param_name, _ in module.named_parameters(recurse=False):
+                full_name = f"{module_name}.{param_name}" if module_name else param_name
+                norm_names.add(full_name)
+    return norm_names
+
+
+def _build_dense_optimizers(model: nn.Module, config: PretrainConfig) -> Tuple[List[torch.optim.Optimizer], List[float]]:
+    """Create optimizer(s) for dense parameters based on config."""
+    optimizers: List[torch.optim.Optimizer] = []
+    lrs: List[float] = []
+
+    if config.optimizer == "adam_atan2":
+        params = [p for p in model.parameters() if p.requires_grad]
+        if params:
+            optimizers.append(
+                AdamAtan2(
+                    params,
+                    lr=config.lr,
+                    weight_decay=config.weight_decay,
+                    betas=(config.beta1, config.beta2)
+                )
+            )
+            lrs.append(config.lr)
+        return optimizers, lrs
+
+    if config.optimizer == "muon":
+        if Muon is None:
+            raise ImportError("Requested Muon optimizer but the `muon` package is not installed. Run `pip install muon`.")
+
+        muon_params: List[torch.nn.Parameter] = []
+        emb_head_params: List[torch.nn.Parameter] = []
+        no_wd_params: List[torch.nn.Parameter] = []
+        adamw_init_sig = inspect.signature(torch.optim.AdamW.__init__)
+        norm_names = _norm_param_names(model)
+
+        def _log_param_groups():
+            total = lambda tensors: sum(p.numel() for p in tensors)
+            rank = getattr(dist, "get_rank", lambda: 0)() if dist.is_available() and dist.is_initialized() else 0
+            if rank == 0:
+                print(f"[Muon]:     {total(muon_params):,} params in {len(muon_params)} tensors")
+                print(f"[Emb/Head]: {total(emb_head_params):,} params in {len(emb_head_params)} tensors")
+                print(f"[No-WD]:    {total(no_wd_params):,} params in {len(no_wd_params)} tensors")
+
+        def _make_adamw(params: List[torch.nn.Parameter], weight_decay: float) -> torch.optim.Optimizer:
+            base_kwargs = {
+                "params": params,
+                "lr": config.lr,
+                "weight_decay": weight_decay,
+                "betas": (config.beta1, config.beta2)
+            }
+            kw_options = []
+            if "fused" in adamw_init_sig.parameters:
+                fused_kwargs = dict(base_kwargs)
+                fused_kwargs["fused"] = True
+                kw_options.append(fused_kwargs)
+            if "foreach" in adamw_init_sig.parameters:
+                foreach_kwargs = dict(base_kwargs)
+                foreach_kwargs["foreach"] = True
+                kw_options.append(foreach_kwargs)
+            kw_options.append(base_kwargs)
+
+            last_err: Optional[Exception] = None
+            for kwargs in kw_options:
+                try:
+                    return torch.optim.AdamW(**kwargs)
+                except (TypeError, RuntimeError) as err:
+                    last_err = err
+                    continue
+            assert last_err is not None
+            raise last_err
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                continue
+            if param.ndim >= 2 and not any(token in name for token in ("embed", "lm_head", "norm", "bias")):
+                muon_params.append(param)
+            else:
+                if (name in norm_names) or name.endswith(".bias"):
+                    no_wd_params.append(param)
+                else:
+                    emb_head_params.append(param)
+
+        _log_param_groups()
+
+        if muon_params:
+            muon_init_sig = inspect.signature(Muon.__init__)
+            muon_kwargs = {
+                "params": muon_params,
+                "lr": config.lr,
+                "weight_decay": config.weight_decay,
+            }
+            for key, value in (
+                ("momentum", 0.95),
+                ("nesterov", True),
+                ("ns_steps", 5),
+                ("adjust_lr_fn", "match_rms_adamw"),
+            ):
+                if key in muon_init_sig.parameters:
+                    muon_kwargs[key] = value
+
+            optimizers.append(Muon(**muon_kwargs))  # type: ignore[call-arg]
+            lrs.append(config.lr)
+
+        if emb_head_params:
+            optimizers.append(_make_adamw(emb_head_params, config.weight_decay))
+            lrs.append(config.lr)
+
+        if no_wd_params:
+            optimizers.append(_make_adamw(no_wd_params, 0.0))
+            lrs.append(config.lr)
+
+        return optimizers, lrs
+
+    raise ValueError(f"Unknown optimizer '{config.optimizer}'. Expected 'adam_atan2' or 'muon'.")
+
+
 def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
     model_cfg = dict(
         **config.arch.__pydantic_extra__,  # type: ignore
@@ -161,50 +294,27 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                 for param in list(model.parameters()) + list(model.buffers()):
                     dist.broadcast(param, src=0)
 
-    # Optimizers and lr
-    if config.arch.puzzle_emb_ndim == 0:
-        optimizers = [
-            AdamAtan2(
-                model.parameters(),
-                lr=0.0001,  # Needs to be set by scheduler
-                weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
-            )
-        ]
-        optimizer_lrs = [
-            config.lr
-        ]
-    elif config.freeze_weights:
-        optimizers = [
+    optimizers: List[torch.optim.Optimizer] = []
+    optimizer_lrs: List[float] = []
+
+    if config.arch.puzzle_emb_ndim != 0:
+        optimizers.append(
             CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
+                model.model.puzzle_emb.buffers(),  # type: ignore[attr-defined]
                 lr=0,  # Needs to be set by scheduler
                 weight_decay=config.puzzle_emb_weight_decay,
                 world_size=world_size
             )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr
-        ]
-    else:
-        optimizers = [
-            CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
-                lr=0,  # Needs to be set by scheduler
-                weight_decay=config.puzzle_emb_weight_decay,
-                world_size=world_size
-            ),
-            AdamAtan2(
-                model.parameters(),
-                lr=0.0001,  # Needs to be set by scheduler
-                weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
-            )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr,
-            config.lr
-        ]
+        )
+        optimizer_lrs.append(config.puzzle_emb_lr)
+
+    dense_needed = (config.arch.puzzle_emb_ndim == 0) or (not config.freeze_weights)
+    if dense_needed:
+        dense_opts, dense_lrs = _build_dense_optimizers(model, config)
+        optimizers.extend(dense_opts)
+        optimizer_lrs.extend(dense_lrs)
+    if not optimizers:
+        raise ValueError("No optimizers were constructed. Check optimizer/puzzle embedding configuration.")
 
     return model, optimizers, optimizer_lrs
 

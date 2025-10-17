@@ -33,6 +33,8 @@ dataloader_persistent_workers: false
 # Hyperparams - Training
 global_batch_size: 96
 
+optimizer: muon
+
 epochs: 512
 eval_interval: 512
 checkpoint_every_eval: True

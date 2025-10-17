@@ -29,6 +29,8 @@ evaluators:
 # Hyperparams - Training
 global_batch_size: 96
 
+optimizer: muon
+
 epochs: 12500
 eval_interval: 2500
 checkpoint_every_eval: True
