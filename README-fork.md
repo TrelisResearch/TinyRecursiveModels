@@ -142,14 +142,14 @@ huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AG
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2concept-aug-512 \
+  --output-dir data/arc2-test-aug-48 \
   --subsets evaluation2 \
   --test-set-name evaluation2 \
-  --num-aug 512
+  --num-aug 48
 ```
 - **Run training:** 
 ```bash
-run_name="kaggle-lora-test"
+run_name="kaggle-lora-test-48a-512e"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py --config-name cfg_kaggle_lora load_checkpoint=pretrained/step_217602 +run_name=${run_name} > lora.log &
 ```
 
