@@ -144,7 +144,7 @@ python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-512 \
   --subsets evaluation2 \
-  --test-set-name evaluation2
+  --test-set-name evaluation2 \
   --num-aug 512
 ```
 - **Run training:** 
