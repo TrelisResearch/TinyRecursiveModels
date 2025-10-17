@@ -143,10 +143,10 @@ hf download Trelis/TRM-ARC-AGI-II \
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2-test-aug-256 \
+  --output-dir data/arc2-test-aug-64 \
   --subsets test \
   --test-set-name test \
-  --num-aug 256
+  --num-aug 64
 ```
 - **Run training:** 
 ```bash
