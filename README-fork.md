@@ -131,6 +131,28 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_
 ```
   This attaches rank-1 adapters (alpha 16), keeps embeddings trainable (`puzzle_emb_lr: 1e-2`), leaves EMA off, and logs submissions every eval pass. No merge step is required for inference—just keep the base checkpoint alongside the LoRA state; merge the low-rank deltas only if you need dense weights.
 
+## LoRA testing for Kaggle
+- **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
+```bash
+uv pip install hf_transfer
+huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
+```
+- **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
+  The LoRA config already targets `data/arc-manual-eval-aug-512`; rebuild it only if you still need the dataset:
+```bash
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-512 \
+  --subsets evaluation2 \
+  --test-set-name evaluation2
+  --num-aug 512
+```
+- **Run training:** 
+```bash
+run_name="kaggle-lora-test"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py --config-name cfg_kaggle_lora load_checkpoint=pretrained/step_217602 +run_name=${run_name} > lora.log &
+```
+
 ## Continued Pretraining on ARC Evaluation Tasks
 > Scores 6.5% pass@2 on manual tasks, with aa2 pre-trained model.
 - **Download checkpoint:** Grab the published ARC checkpoint (e.g. `Sanjin2024/TinyRecursiveModels-ARC-AGI-2`) with `git lfs` or `huggingface-cli`. Keep the accompanying `all_config.yaml` handy so you can mirror the architecture, optimizer, and embedding hyperparameters that were used to produce the weights. As follows:
