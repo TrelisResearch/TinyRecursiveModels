@@ -221,6 +221,9 @@ def _build_dense_optimizers(model: nn.Module, config: PretrainConfig) -> Tuple[L
         for name, param in model.named_parameters():
             if not param.requires_grad:
                 continue
+            if "_lora_" in name:
+                no_wd_params.append(param)
+                continue
             if param.ndim >= 2 and not any(token in name for token in ("embed", "lm_head", "norm", "bias")):
                 muon_params.append(param)
             else:
