@@ -8,8 +8,8 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc2-test-aug-256']
-data_paths_test: ['data/arc2-test-aug-256']
+data_paths: ['data/arc2-test-aug-64']
+data_paths_test: ['data/arc2-test-aug-64']
 
 load_checkpoint: null
 checkpoint_path: null
