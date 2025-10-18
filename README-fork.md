@@ -109,7 +109,9 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 uv pip install hf_transfer
-huggingface-cli download --repo-type model Sanjin2024/TinyRecursiveModels-ARC-AGI-2 --local-dir pretrained
+hf download Trelis/TRM-ARC-AGI-II \
+  all_config.yaml losses.py step_723914 trm.py \
+  --local-dir pretrained
 ```
 - **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
   The LoRA config already targets `data/arc-manual-eval-aug-1000`; rebuild it only if you still need the dataset:
@@ -123,11 +125,10 @@ python -m dataset.build_arc_dataset \
 ```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_manual_pt"
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+run_name="lora_manual_Trelis"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
-  load_checkpoint=pretrained/step_217602 \
-  +run_name=${run_name} > lora.log &
+  +run_name=${run_name} > lora-manual.log &
 ```
   This attaches rank-1 adapters (alpha 16), keeps embeddings trainable (`puzzle_emb_lr: 1e-2`), leaves EMA off, and logs submissions every eval pass. No merge step is required for inference—just keep the base checkpoint alongside the LoRA state; merge the low-rank deltas only if you need dense weights.
 

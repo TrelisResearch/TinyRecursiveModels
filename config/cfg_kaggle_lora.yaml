@@ -11,7 +11,7 @@ entity: "trelis"
 data_paths: ['data/arc2-test-aug-64']
 data_paths_test: ['data/arc2-test-aug-64']
 
-load_checkpoint: null
+load_checkpoint: '/kaggle/input/trm-pretrain/step_723914'
 checkpoint_path: null
 eval_max_augmentations: 32
 
