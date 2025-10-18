@@ -46,7 +46,7 @@ lr_warmup_steps: 200
 # Standard hyperparameter settings
 beta1: 0.9
 beta2: 0.95
-weight_decay: 0.0
+weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training

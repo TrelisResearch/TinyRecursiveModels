@@ -104,8 +104,7 @@ Plus the same training metrics computed on the eval set.
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
-## LoRA Fine-Tuning (Adapter-Only Training)
-> Scores TBD
+## LoRA Fine-Tuning - Manual Dataset
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 uv pip install hf_transfer
@@ -131,6 +130,34 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > lora-manual.log &
 ```
   This attaches rank-1 adapters (alpha 16), keeps embeddings trainable (`puzzle_emb_lr: 1e-2`), leaves EMA off, and logs submissions every eval pass. No merge step is required for inference—just keep the base checkpoint alongside the LoRA state; merge the low-rank deltas only if you need dense weights.
+
+## LoRA Fine-Tuning - Eval Dataset
+- **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  all_config.yaml losses.py step_723914 trm.py \
+  --local-dir pretrained
+```
+- **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
+  The LoRA config already targets `data/arc-manual-eval-aug-1000`; rebuild it only if you still need the dataset:
+```bash
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2 \
+  --test-set-name evaluation2 \
+  --num-aug 1000
+```
+- **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
+```bash
+run_name="lora_manual_Trelis_eval2"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain_lora \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  +run_name=${run_name} > lora-manual.log &
+```
 
 ## LoRA testing for Kaggle
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
