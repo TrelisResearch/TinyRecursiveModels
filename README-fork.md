@@ -176,11 +176,12 @@ python -m dataset.build_arc_dataset \
 ```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_manual_Trelis_eval2_aa1_model"
+run_name="lora_manual_Trelis_eval2_aa1_model_r16"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
   +run_name=${run_name} > lora-eval2-aa1.log &
 ```
 

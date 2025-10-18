@@ -16,7 +16,7 @@ checkpoint_path: null
 eval_max_augmentations: 8
 
 arch:
-  lora_rank: 1
+  lora_rank: 32
   lora_alpha: 16.0
   lora_dropout: 0.0
   lora_train_base: false
