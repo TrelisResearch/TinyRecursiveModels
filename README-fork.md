@@ -40,7 +40,7 @@ python -m dataset.build_arc_dataset \
 **2. Run training (8 GPUs):**
 
 ```bash
-run_name="pretrain_att_arc2concept"
+run_name="pretrain_arc2concept_sep_inpts"
 torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
 +run_name=${run_name}
 ```

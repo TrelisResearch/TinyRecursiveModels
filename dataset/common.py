@@ -8,6 +8,14 @@ import numpy as np
 # Index corresponds to the original tid, and the value is its inverse.
 DIHEDRAL_INVERSE = [0, 3, 2, 1, 4, 5, 6, 7]
 
+# ARC constants shared across builders/evaluators
+ARC_GRID_SIZE = 30
+ARC_GRID_TOKENS = ARC_GRID_SIZE * ARC_GRID_SIZE
+ARC_DIHEDRAL_TOKEN_BASE = 12
+ARC_COLOR_TOKEN_BASE = ARC_DIHEDRAL_TOKEN_BASE + 8  # supports colors 0-9
+ARC_METADATA_TOKENS = 1 + 10  # dihedral + full color mapping (including 0)
+ARC_METADATA_UNIQUE_TOKENS = 8 + 10  # 8 dihedral IDs, 10 color values
+
 
 class PuzzleDatasetMetadata(pydantic.BaseModel):
     pad_id: int

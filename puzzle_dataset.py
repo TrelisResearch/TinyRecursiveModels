@@ -130,7 +130,7 @@ class PuzzleDataset(IterableDataset):
             # Keep indices in memory
             "puzzle_identifiers": None,
             "puzzle_indices": None,
-            "group_indices": None
+            "group_indices": None,
         }
 
         # Load data
@@ -141,10 +141,15 @@ class PuzzleDataset(IterableDataset):
                     set_name_ = set_name + str(i)
                 else:
                     set_name_ = set_name
-                self._data[set_name_] = {
-                    field_name: np.load(os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy"), mmap_mode=mmap_mode)
+                dataset_fields: Dict[str, np.ndarray] = {
+                    field_name: np.load(
+                        os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy"),
+                        mmap_mode=mmap_mode,
+                    )
                     for field_name, mmap_mode in field_mmap_modes.items()
                 }
+
+                self._data[set_name_] = dataset_fields
 
                 if self.config.test_set_mode and self.config.max_eval_augmentations is not None:
                     self._data[set_name_] = self._limit_eval_augmentations(self._data[set_name_], self.config.max_eval_augmentations)
@@ -212,7 +217,7 @@ class PuzzleDataset(IterableDataset):
             pad_values = {
                 "inputs": self.metadata.pad_id,
                 "labels": IGNORE_LABEL_ID,
-                "puzzle_identifiers": self.metadata.blank_identifier_id
+                "puzzle_identifiers": self.metadata.blank_identifier_id,
             }
             batch = {k: np.pad(v, ((0, pad_size), ) + ((0, 0), ) * (v.ndim - 1), constant_values=pad_values[k]) for k, v in batch.items()}
 
@@ -244,7 +249,7 @@ class PuzzleDataset(IterableDataset):
                 batch = self._collate_batch({
                     "inputs": dataset["inputs"][local_start: local_end],
                     "labels": dataset["labels"][local_start: local_end],
-                    "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices]
+                    "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices],
                 })
 
                 yield set_name, batch, end_index - start_index
@@ -285,7 +290,7 @@ class PuzzleDataset(IterableDataset):
                 batch = self._collate_batch({
                     "inputs": dataset["inputs"][batch_indices],
                     "labels": dataset["labels"][batch_indices],
-                    "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices]
+                    "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices],
                 })
 
                 yield set_name, batch, global_effective_batch_size
