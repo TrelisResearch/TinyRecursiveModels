@@ -31,7 +31,7 @@ evaluators:
 global_batch_size: 96
 
 epochs: 5000
-eval_interval: 5000
+eval_interval: 1000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
@@ -42,7 +42,7 @@ lr_warmup_steps: 200
 # Standard hyperparameter settings for LM, as used in Llama
 beta1: 0.9
 beta2: 0.95
-weight_decay: 0.0
+weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training

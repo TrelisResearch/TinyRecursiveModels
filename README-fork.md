@@ -125,7 +125,7 @@ python -m dataset.build_arc_dataset \
 ```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_manual_Trelis"
+run_name="lora_manual_Trelis_wgtd"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
   +run_name=${run_name} > lora-manual.log &
