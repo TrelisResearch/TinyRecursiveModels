@@ -7,13 +7,13 @@ halt_exploration_prob: 0.1
 halt_max_steps: 16
 
 H_cycles: 3
-L_cycles: 6
+L_cycles: 4
 
 H_layers: 0
 L_layers: 2
 
-hidden_size: 512
-num_heads: 8  # min(2, hidden_size // 64)
+hidden_size: 1024
+num_heads: 16  # min(2, hidden_size // 64)
 expansion: 4
 
 puzzle_emb_ndim: ${.hidden_size}
