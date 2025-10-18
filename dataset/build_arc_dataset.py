@@ -8,7 +8,15 @@ import numpy as np
 from argdantic import ArgParser
 from pydantic import BaseModel
 
-from dataset.common import PuzzleDatasetMetadata, dihedral_transform, inverse_dihedral_transform
+from dataset.common import (
+    PuzzleDatasetMetadata,
+    dihedral_transform,
+    ARC_GRID_TOKENS,
+    ARC_METADATA_TOKENS,
+    ARC_METADATA_UNIQUE_TOKENS,
+    ARC_DIHEDRAL_TOKEN_BASE,
+    ARC_COLOR_TOKEN_BASE,
+)
 
 
 cli = ArgParser()
@@ -26,14 +34,15 @@ class DataProcessConfig(BaseModel):
     
 ARCMaxGridSize = 30
 ARCAugmentRetriesFactor = 5
+IDENTITY_COLOR_MAPPING = np.arange(10, dtype=np.uint8)
 
-PuzzleIdSeparator = "|||"
-    
 
 @dataclass
 class ARCPuzzle:
     id: str
     examples: List[Tuple[np.ndarray, np.ndarray]]
+    aug_id: int
+    color_mapping: np.ndarray
 
     
 def arc_grid_to_np(grid: List[List[int]]):
@@ -95,42 +104,32 @@ def puzzle_hash(puzzle: dict):
     return hashlib.sha256("|".join(hashes).encode()).hexdigest()
 
 
-def aug(name: str):
+def aug():
     # Augment plan
     trans_id = np.random.randint(0, 8)
-    mapping = np.concatenate([np.arange(0, 1, dtype=np.uint8), np.random.permutation(np.arange(1, 10, dtype=np.uint8))])  # Permute colors, Excluding "0" (black)
-    
-    name_with_aug_repr = f"{name}{PuzzleIdSeparator}t{trans_id}{PuzzleIdSeparator}{''.join(str(x) for x in mapping)}"
+    mapping = np.concatenate(
+        [np.arange(0, 1, dtype=np.uint8), np.random.permutation(np.arange(1, 10, dtype=np.uint8))]
+    )  # Permute colors, excluding "0" (black)
 
     def _map_grid(grid: np.ndarray):
         return dihedral_transform(mapping[grid], trans_id)
-    
-    return name_with_aug_repr, _map_grid
 
-
-def inverse_aug(name: str):
-    # Inverse the "aug" function
-    if PuzzleIdSeparator not in name:
-        return name, lambda x: x
-
-    trans_id, perm = name.split(PuzzleIdSeparator)[-2:]
-    trans_id = int(trans_id[1:])  # Remove "t" letter
-    inv_perm = np.argsort(list(perm)).astype(np.uint8)
-    
-    def _map_grid(grid: np.ndarray):
-        return inv_perm[inverse_dihedral_transform(grid, trans_id)]
-    
-    return name.split(PuzzleIdSeparator)[0], _map_grid
+    return trans_id, mapping, _map_grid
 
 
 def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count: int, dest_mapping: Dict[str, Tuple[str, str]]):
     # Convert
     dests = set(dest_mapping.values())
-    converted = {dest: ARCPuzzle(name, []) for dest in dests}
+    converted = {
+        dest: ARCPuzzle(name, [], aug_id=0, color_mapping=IDENTITY_COLOR_MAPPING.copy())
+        for dest in dests
+    }
     for example_type, examples in puzzle.items():
         # Map to target split
         dest = dest_mapping[example_type]
-        converted[dest].examples.extend([(arc_grid_to_np(example["input"]), arc_grid_to_np(example["output"])) for example in examples])
+        converted[dest].examples.extend(
+            [(arc_grid_to_np(example["input"]), arc_grid_to_np(example["output"])) for example in examples]
+        )
 
     group = [converted]
     
@@ -139,10 +138,18 @@ def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count:
         hashes = {puzzle_hash(converted)}
 
         for _trial in range(ARCAugmentRetriesFactor * aug_count):
-            aug_name, _map_grid = aug(name)
+            trans_id, mapping, _map_grid = aug()
 
             # Check duplicate
-            augmented = {dest: ARCPuzzle(aug_name, [(_map_grid(input), _map_grid(label)) for (input, label) in puzzle.examples]) for dest, puzzle in converted.items()}
+            augmented = {
+                dest: ARCPuzzle(
+                    name,
+                    [(_map_grid(input), _map_grid(label)) for (input, label) in base.examples],
+                    aug_id=trans_id,
+                    color_mapping=mapping.copy(),
+                )
+                for dest, base in converted.items()
+            }
             h = puzzle_hash(augmented)
             if h not in hashes:
                 hashes.add(h)
@@ -268,15 +275,23 @@ def convert_dataset(config: DataProcessConfig):
                     for _idx_ex, (inp, out) in enumerate(puzzle.examples):
                         inp, out = np_grid_to_seq_translational_augment(inp, out, do_translation=enable_translational_augment and _idx_ex != no_aug_id)
                             
-                        results["inputs"].append(inp)
-                        results["labels"].append(out)
+                        inp = inp.astype(np.int32, copy=False)
+                        out = out.astype(np.int32, copy=False)
+
+                        meta_tokens = np.empty(ARC_METADATA_TOKENS, dtype=np.int32)
+                        meta_tokens[0] = ARC_DIHEDRAL_TOKEN_BASE + puzzle.aug_id
+                        meta_tokens[1:] = ARC_COLOR_TOKEN_BASE + puzzle.color_mapping.astype(np.int32, copy=False)
+
+                        results["inputs"].append(np.concatenate((inp, meta_tokens)))
+                        results["labels"].append(
+                            np.concatenate((out, np.zeros(ARC_METADATA_TOKENS, dtype=np.int32)))
+                        )
                         example_id += 1
                         
                         total_examples += 1
 
                     results["puzzle_indices"].append(example_id)
                     results["puzzle_identifiers"].append(identifier_map[puzzle.id])
-                    
                     puzzle_id += 1
                     total_puzzles += 1
                     
@@ -294,8 +309,8 @@ def convert_dataset(config: DataProcessConfig):
         
         # Metadata
         metadata = PuzzleDatasetMetadata(
-            seq_len=ARCMaxGridSize * ARCMaxGridSize,
-            vocab_size=10 + 2,  # PAD + EOS + "0" ... "9"
+            seq_len=ARC_GRID_TOKENS + ARC_METADATA_TOKENS,
+            vocab_size=10 + 2 + ARC_METADATA_UNIQUE_TOKENS,  # base tokens + augmentation tokens
             pad_id=0,
             ignore_label_id=0,
             blank_identifier_id=0,
@@ -327,15 +342,3 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
-
-
-
-
-
-
-
-
-
-
-

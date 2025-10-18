@@ -7,8 +7,15 @@ import numpy as np
 from numba import njit
 import torch.distributed as dist
 
-from dataset.build_arc_dataset import inverse_aug, grid_hash, arc_grid_to_np
-from dataset.common import PuzzleDatasetMetadata
+from dataset.build_arc_dataset import grid_hash, arc_grid_to_np
+from dataset.common import (
+    PuzzleDatasetMetadata,
+    inverse_dihedral_transform,
+    ARC_GRID_TOKENS,
+    ARC_METADATA_TOKENS,
+    ARC_DIHEDRAL_TOKEN_BASE,
+    ARC_COLOR_TOKEN_BASE,
+)
 
 @njit
 def _crop(grid: np.ndarray):
@@ -86,19 +93,39 @@ class ARC:
         outputs = {k: v[mask] for k, v in outputs.items()}
 
         # Get predictions
-        for identifier, input, pred, q in zip(outputs["puzzle_identifiers"].numpy(), outputs["inputs"].numpy(), outputs["preds"].numpy(), q_values.numpy()):
+        for identifier, input_flat, pred_flat, q in zip(
+            outputs["puzzle_identifiers"].numpy(),
+            outputs["inputs"].numpy(),
+            outputs["preds"].numpy(),
+            q_values.numpy(),
+        ):
             name = self.identifier_map[identifier]
-            orig_name, _inverse_fn = inverse_aug(name)
-            
-            input_hash = grid_hash(_inverse_fn(_crop(input)))
-            
-            pred = _inverse_fn(_crop(pred))
-            assert np.all((pred >= 0) & (pred <= 9)), f"Puzzle {name}'s prediction out of 0-9 range."  # Sanity check
+            orig_name = name
+
+            grid_input = input_flat[:ARC_GRID_TOKENS].astype(np.uint8, copy=False)
+            grid_pred = pred_flat[:ARC_GRID_TOKENS].astype(np.uint8, copy=False)
+            metadata_tokens = input_flat[ARC_GRID_TOKENS : ARC_GRID_TOKENS + ARC_METADATA_TOKENS]
+            if metadata_tokens.size < ARC_METADATA_TOKENS:
+                print(f"Puzzle {name} missing augmentation metadata; skipping sample.")
+                continue
+
+            trans_id = int(np.clip(metadata_tokens[0] - ARC_DIHEDRAL_TOKEN_BASE, 0, 7))
+            color_mapping = np.clip(metadata_tokens[1:] - ARC_COLOR_TOKEN_BASE, 0, 9).astype(np.int32, copy=False)
+            inv_perm = np.arange(color_mapping.shape[0], dtype=np.uint8)
+            inv_perm[color_mapping] = np.arange(color_mapping.shape[0], dtype=np.uint8)
+
+            cropped_input = _crop(grid_input)
+            restored_input = inv_perm[inverse_dihedral_transform(cropped_input, trans_id)]
+            input_hash = grid_hash(restored_input)
+
+            cropped_pred = _crop(grid_pred)
+            restored_pred = inv_perm[inverse_dihedral_transform(cropped_pred, trans_id)]
+            assert np.all((restored_pred >= 0) & (restored_pred <= 9)), f"Puzzle {name}'s prediction out of 0-9 range."  # Sanity check
 
             # Store into local state
-            pred_hash = grid_hash(pred)
+            pred_hash = grid_hash(restored_pred)
 
-            self._local_hmap[pred_hash] = pred
+            self._local_hmap[pred_hash] = restored_pred
             
             self._local_preds.setdefault(orig_name, {})
             self._local_preds[orig_name].setdefault(input_hash, [])
