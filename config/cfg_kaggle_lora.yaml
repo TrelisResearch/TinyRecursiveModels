@@ -8,12 +8,12 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc2-test-aug-64']
-data_paths_test: ['data/arc2-test-aug-64']
+data_paths: ['data/arc2-test-aug-1000']
+data_paths_test: ['data/arc2-test-aug-1000']
 
 load_checkpoint: '/kaggle/input/trm-pretrain/step_723914'
 checkpoint_path: null
-eval_max_augmentations: 32
+eval_max_augmentations: 8
 
 arch:
   lora_rank: 1
