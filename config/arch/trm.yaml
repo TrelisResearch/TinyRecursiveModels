@@ -7,7 +7,7 @@ halt_exploration_prob: 0.1
 halt_max_steps: 16
 
 H_cycles: 3
-L_cycles: 6
+L_cycles: 4
 
 H_layers: 0
 L_layers: 2

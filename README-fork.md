@@ -37,15 +37,15 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2
 ```
 
-**2. Run training (8 GPUs):**
+**2. Run training (4 GPUs):**
 
 ```bash
-run_name="pretrain_att_arc2concept"
-torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-+run_name=${run_name}
+run_name="pretrain_att_arc2concept_replication"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
++run_name=${run_name} > replic.log &
 ```
 
-**Runtime:** ~3 days on 8x H100 GPUs
+**Runtime:** ~3 days on 4x H100 GPUs?
 
 *Other options:*
 To test it on a small batch size, change global_batch_size:
