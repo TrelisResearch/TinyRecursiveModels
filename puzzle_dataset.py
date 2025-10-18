@@ -48,6 +48,7 @@ class PuzzleDatasetConfig(pydantic.BaseModel):
     epochs_per_iter: int  # Batch X epochs in an iteration to reduce overhead.
     rank: int
     num_replicas: int
+    max_eval_augmentations: Optional[int] = None
 
 class PuzzleDataset(IterableDataset):
     def __init__(self, config: PuzzleDatasetConfig, split: str = "train"):
@@ -111,6 +112,8 @@ class PuzzleDataset(IterableDataset):
         # State
         self._data = None
         self._iters = 0
+        if self.config.max_eval_augmentations is not None and self.config.max_eval_augmentations < 0:
+            raise ValueError("max_eval_augmentations must be non-negative when provided.")
 
     def _load_metadata(self, dataset_path) -> PuzzleDatasetMetadata:
         with open(os.path.join(dataset_path, self.split, "dataset.json"), "r") as f:
@@ -143,6 +146,57 @@ class PuzzleDataset(IterableDataset):
                     for field_name, mmap_mode in field_mmap_modes.items()
                 }
 
+                if self.config.test_set_mode and self.config.max_eval_augmentations is not None:
+                    self._data[set_name_] = self._limit_eval_augmentations(self._data[set_name_], self.config.max_eval_augmentations)
+
+
+    def _limit_eval_augmentations(self, dataset: Dict[str, np.ndarray], max_aug: int):
+        # Keep the original puzzle plus up to max_aug augmented variants per group.
+        if max_aug is None:
+            return dataset
+        max_group_size = max_aug + 1  # include base puzzle
+        group_indices = dataset["group_indices"]
+        puzzle_indices = dataset["puzzle_indices"]
+        inputs = dataset["inputs"]
+        labels = dataset["labels"]
+        puzzle_ids = dataset["puzzle_identifiers"]
+
+        new_inputs = []
+        new_labels = []
+        new_puzzle_ids = []
+        new_puzzle_indices = [0]
+        new_group_indices = [0]
+
+        for group_idx in range(group_indices.size - 1):
+            start = int(group_indices[group_idx])
+            end = int(group_indices[group_idx + 1])
+            group_size = end - start
+            keep = min(group_size, max_group_size)
+            if keep <= 0:
+                continue
+
+            for puzzle_idx in range(start, start + keep):
+                ex_start = int(puzzle_indices[puzzle_idx])
+                ex_end = int(puzzle_indices[puzzle_idx + 1])
+                new_inputs.append(inputs[ex_start:ex_end])
+                new_labels.append(labels[ex_start:ex_end])
+                new_puzzle_ids.append(puzzle_ids[puzzle_idx])
+                new_puzzle_indices.append(new_puzzle_indices[-1] + (ex_end - ex_start))
+
+            new_group_indices.append(new_group_indices[-1] + keep)
+
+        if len(new_inputs) == 0:
+            return dataset
+
+        # Concatenate along example dimension
+        limited_dataset = {
+            "inputs": np.concatenate(new_inputs, axis=0),
+            "labels": np.concatenate(new_labels, axis=0),
+            "puzzle_identifiers": np.asarray(new_puzzle_ids, dtype=puzzle_ids.dtype),
+            "puzzle_indices": np.asarray(new_puzzle_indices, dtype=puzzle_indices.dtype),
+            "group_indices": np.asarray(new_group_indices, dtype=group_indices.dtype),
+        }
+        return limited_dataset
 
     def _collate_batch(self, batch):
         # Convert dtype
@@ -247,4 +301,3 @@ class PuzzleDataset(IterableDataset):
             yield from self._iter_test()
         else:
             yield from self._iter_train()
-

@@ -13,6 +13,7 @@ data_paths_test: ['data/arc2-test-aug-64']
 
 load_checkpoint: null
 checkpoint_path: null
+eval_max_augmentations: 32
 
 arch:
   lora_rank: 1
@@ -33,8 +34,8 @@ dataloader_persistent_workers: false
 # Hyperparams - Training
 global_batch_size: 96
 
-epochs: 8
-eval_interval: 8
+epochs: 500
+eval_interval: 500
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 

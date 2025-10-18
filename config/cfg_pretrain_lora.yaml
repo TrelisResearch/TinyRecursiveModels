@@ -15,6 +15,7 @@ data_paths_test: ['data/arc-manual-eval-aug-1000']
 
 load_checkpoint: null
 checkpoint_path: null
+eval_max_augmentations: 32
 
 arch:
   lora_rank: 1
@@ -29,8 +30,8 @@ evaluators:
 # Hyperparams - Training
 global_batch_size: 96
 
-epochs: 12500
-eval_interval: 2500
+epochs: 5000
+eval_interval: 5000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
