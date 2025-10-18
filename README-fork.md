@@ -140,7 +140,6 @@ hf download Trelis/TRM-ARC-AGI-II \
   --local-dir pretrained
 ```
 - **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
-  The LoRA config already targets `data/arc-manual-eval-aug-1000`; rebuild it only if you still need the dataset:
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
@@ -157,6 +156,32 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   +run_name=${run_name} > lora-manual.log &
+```
+## Eval dataset on aa1 model
+- **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
+```bash
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  all_config.yaml losses.py step_155718 trm.py \
+  --local-dir pretrained
+```
+- **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
+```bash
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2 \
+  --test-set-name evaluation2 \
+  --num-aug 1000
+```
+- **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
+```bash
+run_name="lora_manual_Trelis_eval2_aa1_model"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain_lora \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  +run_name=${run_name} > lora-eval2-aa1.log &
 ```
 
 ## LoRA testing for Kaggle
