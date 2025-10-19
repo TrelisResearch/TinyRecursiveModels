@@ -158,9 +158,9 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > lora-manual.log &
 ```
 ## Eval only training
-### Slim
+### Slimmest
 ```bash
-run_name="pretrain_eval-only-slim"
+run_name="pretrain_eval-only-slimmest"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2eval-aug-1000 \
