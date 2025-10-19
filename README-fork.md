@@ -158,9 +158,9 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > lora-manual.log &
 ```
 ## Eval only training
-### Original
+### Slim
 ```bash
-run_name="pretrain_eval-only"
+run_name="pretrain_eval-only-slim"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2eval-aug-1000 \
@@ -170,9 +170,6 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   --config-name cfg_pretrain_eval \
   +run_name="${run_name}" > eval-only.log &
 ```
-
-### Slim
-
 
 ## Eval dataset on aa1 model
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
