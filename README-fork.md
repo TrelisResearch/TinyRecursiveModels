@@ -28,24 +28,32 @@ export GIT_USER_EMAIL="your@email.com"
 
 ### How to Run
 
-**1. Prepare the dataset:**
 ```bash
+run_name="pretrain_1"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2concept-aug-1000 \
-  --subsets training2 evaluation2 concept \
-  --test-set-name evaluation2
+  --output-dir data/arc2eval-1-aug-10000 \
+  --num-aug 10000 \
+  --subsets evaluation2first \
+  --test-set-name evaluation2first && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > eval1.log &
 ```
 
-**2. Run training (4 GPUs):**
-
+and for ten tasks:
 ```bash
-run_name="pretrain_att_arc2concept_replication"
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-+run_name=${run_name} > replic.log &
+run_name="pretrain_10"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2eval-1-aug-10000 \
+  --num-aug 10000 \
+  --subsets evaluation2first10 \
+  --test-set-name evaluation2first10 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > eval10.log &
 ```
-
-**Runtime:** ~3 days on 4x H100 GPUs?
 
 *Other options:*
 To test it on a small batch size, change global_batch_size:
