@@ -43,7 +43,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_
 
 and for ten tasks:
 ```bash
-run_name="pretrain_10"
+run_name="pretrain_10-big-32"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2eval-1-aug-10000 \
@@ -52,7 +52,7 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2first10 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > eval10-big.log &
+  +run_name="${run_name}" > eval10-big-32.log &
 ```
 
 *Other options:*
