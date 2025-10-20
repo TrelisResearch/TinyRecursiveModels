@@ -24,7 +24,7 @@ eval_interval: 20000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
-lr: 4e-4
+lr: 2e-4
 lr_min_ratio: 1.0
 lr_warmup_steps: 2000
 

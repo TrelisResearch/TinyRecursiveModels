@@ -29,7 +29,7 @@ export GIT_USER_EMAIL="your@email.com"
 ### How to Run
 
 ```bash
-run_name="pretrain_1"
+run_name="pretrain_1-big"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2eval-1-aug-10000 \
@@ -38,7 +38,7 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2first && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > eval1.log &
+  +run_name="${run_name}" > eval1-big.log &
 ```
 
 and for ten tasks:
@@ -52,7 +52,7 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2first10 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 1 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > eval10.log &
+  +run_name="${run_name}" > eval10-big.log &
 ```
 
 *Other options:*
