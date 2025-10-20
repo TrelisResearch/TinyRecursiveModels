@@ -13,6 +13,8 @@ entity: "trelis"
 data_paths: ['data/arc2ethard-aug-1000']
 data_paths_test: []
 
+eval_max_augmentations: 128
+
 evaluators:
   - name: arc@ARC
 
