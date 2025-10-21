@@ -143,6 +143,9 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             # Zero init puzzle embeddings
             self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
                                                     batch_size=self.config.batch_size, init_std=0, cast_to=self.forward_dtype)
+            target_dim = self.puzzle_emb_len * self.config.hidden_size
+            if self.config.puzzle_emb_ndim != target_dim:
+                self.puzzle_emb_adapter = CastedLinear(self.config.puzzle_emb_ndim, target_dim, bias=False)
 
         # LM Blocks
         if self.config.pos_encodings == "rope":
@@ -174,10 +177,13 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         # Puzzle embeddings
         if self.config.puzzle_emb_ndim > 0:
             puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
-            
-            pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
-            if pad_count > 0:
-                puzzle_embedding = F.pad(puzzle_embedding, (0, pad_count))
+
+            if hasattr(self, "puzzle_emb_adapter"):
+                puzzle_embedding = self.puzzle_emb_adapter(puzzle_embedding)
+            elif puzzle_embedding.shape[-1] != self.puzzle_emb_len * self.config.hidden_size:
+                pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
+                if pad_count > 0:
+                    puzzle_embedding = F.pad(puzzle_embedding, (0, pad_count))
 
             embedding = torch.cat((puzzle_embedding.view(-1, self.puzzle_emb_len, self.config.hidden_size), embedding), dim=-2)
 
