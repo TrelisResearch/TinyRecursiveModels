@@ -55,6 +55,22 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   --config-name cfg_posttrain \
   +run_name="${run_name}" > posttrain_slim-tm-step_281937.log &
 ```
+### Slim Posttrain LoRA
+```bash
+run_name="posttrain_lora_slim-tm-step_281937"
+uv pip install hf_transfer
+hf download Trelis/TRM-slim-feth \
+  step_281937 \
+  --local-dir pretrained
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2tm-aug-1000 \
+  --subsets trainingmid \
+  --test-set-name trainingmid
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_posttrain_lora \
+  +run_name="${run_name}" > posttrain_lora_slim-tm-step_281937.log &
+```
 
 ### Push trained model to HF
 
