@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 arch:
-  lora_rank: 32
+  lora_rank: 1
   lora_alpha: 16.0
   lora_dropout: 0.0
   lora_train_base: false
@@ -50,6 +50,6 @@ puzzle_emb_lr: 2e-2
 seed: 0
 min_eval_interval: 0 # when to start the eval
 
-ema: True # use Exponential-Moving-Average
+ema: False # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
 freeze_weights: False # If True, freeze weights and only learn the embeddings
