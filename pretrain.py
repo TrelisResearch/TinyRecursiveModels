@@ -164,10 +164,12 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                     dist.broadcast(param, src=0)
 
     # Optimizers and lr
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+
     if config.arch.puzzle_emb_ndim == 0:
         optimizers = [
             AdamAtan2(
-                model.parameters(),
+                trainable_params,
                 lr=0.0001,  # Needs to be set by scheduler
                 weight_decay=config.weight_decay,
                 betas=(config.beta1, config.beta2)
@@ -197,7 +199,7 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                 world_size=world_size
             ),
             AdamAtan2(
-                model.parameters(),
+                trainable_params,
                 lr=0.0001,  # Needs to be set by scheduler
                 weight_decay=config.weight_decay,
                 betas=(config.beta1, config.beta2)
