@@ -1,4 +1,4 @@
-from typing import Optional, Any, Sequence, List
+from typing import Optional, Any, Sequence, List, Tuple
 from dataclasses import dataclass
 import os
 import math
@@ -296,6 +296,39 @@ def compute_lr(base_lr: float, config: PretrainConfig, train_state: TrainState):
     )
 
 
+def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return (embedding_grad_norm, trunk_grad_norm)."""
+    try:
+        device = next(model.parameters()).device  # type: ignore
+    except StopIteration:
+        device = torch.device("cpu")
+
+    embed_sq = torch.zeros((), device=device, dtype=torch.float32)
+    trunk_sq = torch.zeros((), device=device, dtype=torch.float32)
+
+    embed_keys = ("puzzle_emb", "aug_dihedral_emb", "aug_color_pair_emb")
+
+    for name, param in model.named_parameters():
+        if param.grad is None:
+            continue
+        grad_sq = param.grad.detach().float().pow(2).sum()
+        if any(key in name for key in embed_keys):
+            embed_sq += grad_sq
+        else:
+            trunk_sq += grad_sq
+
+    core_model = getattr(model, "model", None)
+    if core_model is not None:
+        inner = getattr(core_model, "inner", None)
+        puzzle_emb = getattr(inner, "puzzle_emb", None)
+        if puzzle_emb is not None and getattr(puzzle_emb, "local_weights", None) is not None:
+            local_grad = puzzle_emb.local_weights.grad  # type: ignore
+            if local_grad is not None:
+                embed_sq += local_grad.detach().float().pow(2).sum()
+
+    return embed_sq.sqrt(), trunk_sq.sqrt()
+
+
 
 def create_evaluators(config: PretrainConfig, eval_metadata: PuzzleDatasetMetadata) -> List[Any]:
     data_paths =config.data_paths_test if len(config.data_paths_test)>0 else config.data_paths
@@ -333,7 +366,19 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
         for param in train_state.model.parameters():
             if param.grad is not None:
                 dist.all_reduce(param.grad)
-            
+
+    # Gradient norm diagnostics (log on rank 0 via metrics)
+    grad_embed_norm, grad_trunk_norm = compute_grad_norms(train_state.model)
+    if metrics is not None:
+        count_tensor = metrics.get("count")
+        if count_tensor is not None:
+            scaling = torch.clamp(count_tensor.to(grad_embed_norm.dtype), min=1.0)
+            metrics["grad_embed_norm"] = grad_embed_norm.detach() * scaling
+            metrics["grad_trunk_norm"] = grad_trunk_norm.detach() * scaling
+        else:
+            metrics["grad_embed_norm"] = grad_embed_norm.detach()
+            metrics["grad_trunk_norm"] = grad_trunk_norm.detach()
+
     # Apply optimizer
     lr_this_step = None    
     for optim, base_lr in zip(train_state.optimizers, train_state.optimizer_lrs):
