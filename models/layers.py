@@ -79,11 +79,12 @@ class CastedLinear(nn.Module):
             if self._lora_dropout is not None:
                 lora_input = self._lora_dropout(lora_input)
 
-            lora_input_fp = lora_input.to(self._lora_A.dtype)
-            # Project down then up using LoRA factors
-            lora_down = F.linear(lora_input_fp, self._lora_A)
-            lora_update = F.linear(lora_down, self._lora_B)
-            result = result + lora_update.to(result.dtype) * self._lora_scaling
+        if lora_input.dtype != self._lora_A.dtype:
+            lora_input = lora_input.to(self._lora_A.dtype)
+        # Project down then up using LoRA factors
+        lora_down = F.linear(lora_input, self._lora_A)
+        lora_update = F.linear(lora_down, self._lora_B)
+        result = result + lora_update.to(result.dtype) * self._lora_scaling
 
         return result
 
@@ -110,8 +111,10 @@ class CastedLinear(nn.Module):
         self._lora_train_bias = train_bias
 
         # LoRA factor matrices
-        self._lora_A = nn.Parameter(torch.zeros((rank, in_features)))
-        self._lora_B = nn.Parameter(torch.zeros((out_features, rank)))
+        lora_dtype = self.weight.dtype
+        lora_device = self.weight.device
+        self._lora_A = nn.Parameter(torch.zeros((rank, in_features), dtype=lora_dtype, device=lora_device))
+        self._lora_B = nn.Parameter(torch.zeros((out_features, rank), dtype=lora_dtype, device=lora_device))
 
         # Initialization following LoRA paper recommendations
         nn.init.kaiming_uniform_(self._lora_A, a=math.sqrt(5))
