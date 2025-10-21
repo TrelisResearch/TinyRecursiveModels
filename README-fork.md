@@ -28,15 +28,15 @@ export GIT_USER_EMAIL="your@email.com"
 
 ### Slim
 ```bash
-run_name="pretrain_slim-feth"
+run_name="pretrain_slim-tm"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2feth-aug-1000 \
-  --subsets traininghard evaluation2 manual_evaluation \
-  --test-set-name manual_evaluation && \
+  --output-dir data/arc2tm-aug-1000 \
+  --subsets trainingmid \
+  --test-set-name trainingmid && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > pretrain_slim-feth.log &
+  +run_name="${run_name}" > pretrain_slim-tm.log &
 ```
 
 ### Push trained model to HF
