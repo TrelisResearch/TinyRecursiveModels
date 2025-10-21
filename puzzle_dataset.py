@@ -64,10 +64,12 @@ class PuzzleDataset(IterableDataset):
         prev_blank_identifier_id = None
         prev_sets = None
         prev_num_identifiers = None
+        prev_num_aug_identifiers = None
         mean_puzzle_examples = 0
         total_puzzles = 0
         total_groups = 0
         num_identifiers = 0
+        num_aug_identifiers = 0
         for dataset_path in config.dataset_paths:
             current_metadata = self._load_metadata(dataset_path)
             if prev_seq_len is None:
@@ -78,6 +80,7 @@ class PuzzleDataset(IterableDataset):
                 prev_blank_identifier_id = current_metadata.blank_identifier_id
                 prev_sets = current_metadata.sets
                 prev_num_identifiers = current_metadata.num_puzzle_identifiers
+                prev_num_aug_identifiers = current_metadata.num_aug_identifiers
             else:
                 assert prev_seq_len == current_metadata.seq_len
                 assert prev_vocab_size == current_metadata.vocab_size
@@ -86,10 +89,12 @@ class PuzzleDataset(IterableDataset):
                 assert prev_blank_identifier_id == current_metadata.blank_identifier_id
                 assert prev_sets == current_metadata.sets
                 assert prev_num_identifiers == current_metadata.num_puzzle_identifiers
+                assert prev_num_aug_identifiers == current_metadata.num_aug_identifiers
             mean_puzzle_examples += current_metadata.mean_puzzle_examples*current_metadata.total_puzzles
             total_puzzles += current_metadata.total_puzzles
             total_groups += current_metadata.total_groups
             num_identifiers += current_metadata.num_puzzle_identifiers
+            num_aug_identifiers += current_metadata.num_aug_identifiers
         mean_puzzle_examples = mean_puzzle_examples / total_puzzles
 
         self.metadata = PuzzleDatasetMetadata(
@@ -99,6 +104,7 @@ class PuzzleDataset(IterableDataset):
             ignore_label_id=prev_ignore_label_id,
             blank_identifier_id=prev_blank_identifier_id,
             num_puzzle_identifiers=num_identifiers,
+            num_aug_identifiers=num_aug_identifiers,
             total_groups=total_groups,
             mean_puzzle_examples=mean_puzzle_examples,
             total_puzzles=total_puzzles,
@@ -130,7 +136,10 @@ class PuzzleDataset(IterableDataset):
             # Keep indices in memory
             "puzzle_identifiers": None,
             "puzzle_indices": None,
-            "group_indices": None
+            "group_indices": None,
+            "aug_identifiers": None,
+            "aug_dihedral": None,
+            "aug_color_perm": None
         }
 
         # Load data
@@ -141,10 +150,12 @@ class PuzzleDataset(IterableDataset):
                     set_name_ = set_name + str(i)
                 else:
                     set_name_ = set_name
-                self._data[set_name_] = {
-                    field_name: np.load(os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy"), mmap_mode=mmap_mode)
-                    for field_name, mmap_mode in field_mmap_modes.items()
-                }
+                data_entry = {}
+                for field_name, mmap_mode in field_mmap_modes.items():
+                    file_path = os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy")
+                    if os.path.exists(file_path):
+                        data_entry[field_name] = np.load(file_path, mmap_mode=mmap_mode)
+                self._data[set_name_] = data_entry
 
                 if self.config.test_set_mode and self.config.max_eval_augmentations is not None:
                     self._data[set_name_] = self._limit_eval_augmentations(self._data[set_name_], self.config.max_eval_augmentations)
@@ -166,6 +177,9 @@ class PuzzleDataset(IterableDataset):
         new_puzzle_ids = []
         new_puzzle_indices = [0]
         new_group_indices = [0]
+        new_aug_ids = []
+        new_aug_dihedral = []
+        new_aug_color_perm = []
 
         for group_idx in range(group_indices.size - 1):
             start = int(group_indices[group_idx])
@@ -182,6 +196,12 @@ class PuzzleDataset(IterableDataset):
                 new_labels.append(labels[ex_start:ex_end])
                 new_puzzle_ids.append(puzzle_ids[puzzle_idx])
                 new_puzzle_indices.append(new_puzzle_indices[-1] + (ex_end - ex_start))
+                if "aug_identifiers" in dataset:
+                    new_aug_ids.append(dataset["aug_identifiers"][puzzle_idx])
+                if "aug_dihedral" in dataset:
+                    new_aug_dihedral.append(dataset["aug_dihedral"][puzzle_idx])
+                if "aug_color_perm" in dataset:
+                    new_aug_color_perm.append(dataset["aug_color_perm"][puzzle_idx])
 
             new_group_indices.append(new_group_indices[-1] + keep)
 
@@ -196,6 +216,12 @@ class PuzzleDataset(IterableDataset):
             "puzzle_indices": np.asarray(new_puzzle_indices, dtype=puzzle_indices.dtype),
             "group_indices": np.asarray(new_group_indices, dtype=group_indices.dtype),
         }
+        if len(new_aug_ids):
+            limited_dataset["aug_identifiers"] = np.asarray(new_aug_ids, dtype=np.int32)
+        if len(new_aug_dihedral):
+            limited_dataset["aug_dihedral"] = np.asarray(new_aug_dihedral, dtype=np.int32)
+        if len(new_aug_color_perm):
+            limited_dataset["aug_color_perm"] = np.stack(new_aug_color_perm, axis=0).astype(np.int32)
         return limited_dataset
 
     def _collate_batch(self, batch):
@@ -212,9 +238,19 @@ class PuzzleDataset(IterableDataset):
             pad_values = {
                 "inputs": self.metadata.pad_id,
                 "labels": IGNORE_LABEL_ID,
-                "puzzle_identifiers": self.metadata.blank_identifier_id
+                "puzzle_identifiers": self.metadata.blank_identifier_id,
+                "aug_identifiers": self.metadata.blank_identifier_id,
+                "aug_dihedral": 0,
             }
-            batch = {k: np.pad(v, ((0, pad_size), ) + ((0, 0), ) * (v.ndim - 1), constant_values=pad_values[k]) for k, v in batch.items()}
+            for key, value in list(batch.items()):
+                if key == "aug_color_perm":
+                    identity_perm = np.tile(np.arange(10, dtype=np.int32), (pad_size, 1))
+                    batch[key] = np.concatenate([value, identity_perm], axis=0)
+                else:
+                    if value.ndim == 1:
+                        batch[key] = np.pad(value, (0, pad_size), constant_values=pad_values.get(key, 0))
+                    else:
+                        batch[key] = np.pad(value, ((0, pad_size),) + ((0, 0),) * (value.ndim - 1), constant_values=pad_values.get(key, 0))
 
         # To tensor
         return {k: torch.from_numpy(v) for k, v in batch.items()}
@@ -241,11 +277,19 @@ class PuzzleDataset(IterableDataset):
 
                     puzzle_indices.append(puzzle_index)
                 
-                batch = self._collate_batch({
+                collate_dict = {
                     "inputs": dataset["inputs"][local_start: local_end],
                     "labels": dataset["labels"][local_start: local_end],
                     "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices]
-                })
+                }
+                if "aug_identifiers" in dataset:
+                    collate_dict["aug_identifiers"] = dataset["aug_identifiers"][puzzle_indices]
+                if "aug_dihedral" in dataset:
+                    collate_dict["aug_dihedral"] = dataset["aug_dihedral"][puzzle_indices]
+                if "aug_color_perm" in dataset:
+                    collate_dict["aug_color_perm"] = dataset["aug_color_perm"][puzzle_indices]
+
+                batch = self._collate_batch(collate_dict)
 
                 yield set_name, batch, end_index - start_index
                 
@@ -282,11 +326,19 @@ class PuzzleDataset(IterableDataset):
 
                 batch_indices        = batch_indices       [self.config.rank * self.local_batch_size: (self.config.rank + 1) * self.local_batch_size]
                 batch_puzzle_indices = batch_puzzle_indices[self.config.rank * self.local_batch_size: (self.config.rank + 1) * self.local_batch_size]
-                batch = self._collate_batch({
+                collate_dict = {
                     "inputs": dataset["inputs"][batch_indices],
                     "labels": dataset["labels"][batch_indices],
                     "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices]
-                })
+                }
+                if "aug_identifiers" in dataset:
+                    collate_dict["aug_identifiers"] = dataset["aug_identifiers"][batch_puzzle_indices]
+                if "aug_dihedral" in dataset:
+                    collate_dict["aug_dihedral"] = dataset["aug_dihedral"][batch_puzzle_indices]
+                if "aug_color_perm" in dataset:
+                    collate_dict["aug_color_perm"] = dataset["aug_color_perm"][batch_puzzle_indices]
+
+                batch = self._collate_batch(collate_dict)
 
                 yield set_name, batch, global_effective_batch_size
                 

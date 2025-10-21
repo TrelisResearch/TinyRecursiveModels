@@ -33,6 +33,9 @@ PuzzleIdSeparator = "|||"
 @dataclass
 class ARCPuzzle:
     id: str
+    base_id: str
+    transform_id: int
+    color_perm: np.ndarray
     examples: List[Tuple[np.ndarray, np.ndarray]]
 
     
@@ -105,7 +108,7 @@ def aug(name: str):
     def _map_grid(grid: np.ndarray):
         return dihedral_transform(mapping[grid], trans_id)
     
-    return name_with_aug_repr, _map_grid
+    return name_with_aug_repr, trans_id, mapping, _map_grid
 
 
 def inverse_aug(name: str):
@@ -126,7 +129,17 @@ def inverse_aug(name: str):
 def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count: int, dest_mapping: Dict[str, Tuple[str, str]]):
     # Convert
     dests = set(dest_mapping.values())
-    converted = {dest: ARCPuzzle(name, []) for dest in dests}
+    identity_perm = np.arange(10, dtype=np.uint8)
+    converted = {
+        dest: ARCPuzzle(
+            id=name,
+            base_id=name,
+            transform_id=0,
+            color_perm=identity_perm.copy(),
+            examples=[]
+        )
+        for dest in dests
+    }
     for example_type, examples in puzzle.items():
         # Map to target split
         dest = dest_mapping[example_type]
@@ -139,10 +152,19 @@ def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count:
         hashes = {puzzle_hash(converted)}
 
         for _trial in range(ARCAugmentRetriesFactor * aug_count):
-            aug_name, _map_grid = aug(name)
+            aug_name, trans_id, mapping, _map_grid = aug(name)
 
             # Check duplicate
-            augmented = {dest: ARCPuzzle(aug_name, [(_map_grid(input), _map_grid(label)) for (input, label) in puzzle.examples]) for dest, puzzle in converted.items()}
+            augmented = {
+                dest: ARCPuzzle(
+                    id=aug_name,
+                    base_id=name,
+                    transform_id=trans_id,
+                    color_perm=mapping.copy(),
+                    examples=[(_map_grid(input), _map_grid(label)) for (input, label) in puzzle.examples]
+                )
+                for dest, puzzle in converted.items()
+            }
             h = puzzle_hash(augmented)
             if h not in hashes:
                 hashes.add(h)
@@ -228,17 +250,23 @@ def convert_dataset(config: DataProcessConfig):
     # Read dataset
     data, test_puzzles = load_puzzles_arcagi(config)
     
-    # Map global puzzle identifiers
-    num_identifiers = config.puzzle_identifiers_start  # 0 is blank, start at 1
-    identifier_map = {}
+    # Map global puzzle identifiers (base puzzle IDs for embeddings, augmented IDs for evaluation)
+    next_base_identifier = config.puzzle_identifiers_start  # 0 is blank, start at 1
+    next_aug_identifier = config.puzzle_identifiers_start
+    base_identifier_map = {}
+    aug_identifier_map = {}
     for split_name, split in data.items():
         for subset_name, subset in split.items():
             for group in subset:
                 for puzzle in group:
-                    if puzzle.id not in identifier_map:
-                        identifier_map[puzzle.id] = num_identifiers
-                        num_identifiers += 1
-    print (f"Total puzzle IDs (including <blank>): {num_identifiers}")
+                    if puzzle.base_id not in base_identifier_map:
+                        base_identifier_map[puzzle.base_id] = next_base_identifier
+                        next_base_identifier += 1
+                    if puzzle.id not in aug_identifier_map:
+                        aug_identifier_map[puzzle.id] = next_aug_identifier
+                        next_aug_identifier += 1
+    print (f"Total base puzzle IDs (including <blank>): {next_base_identifier}")
+    print (f"Total augmented puzzle IDs (including <blank>): {next_aug_identifier}")
 
     # Save
     for split_name, split in data.items():
@@ -254,7 +282,7 @@ def convert_dataset(config: DataProcessConfig):
         
         for subset_name, subset in split.items(): # "all" is the only subset
             # Construct subset
-            results = {k: [] for k in ["inputs", "labels", "puzzle_identifiers", "puzzle_indices", "group_indices"]}
+            results = {k: [] for k in ["inputs", "labels", "puzzle_identifiers", "aug_identifiers", "aug_dihedral", "aug_color_perm", "puzzle_indices", "group_indices"]}
             results["puzzle_indices"].append(0)
             results["group_indices"].append(0)
             
@@ -273,9 +301,11 @@ def convert_dataset(config: DataProcessConfig):
                         example_id += 1
                         
                         total_examples += 1
-
                     results["puzzle_indices"].append(example_id)
-                    results["puzzle_identifiers"].append(identifier_map[puzzle.id])
+                    results["puzzle_identifiers"].append(base_identifier_map[puzzle.base_id])
+                    results["aug_identifiers"].append(aug_identifier_map[puzzle.id])
+                    results["aug_dihedral"].append(puzzle.transform_id)
+                    results["aug_color_perm"].append(puzzle.color_perm)
                     
                     puzzle_id += 1
                     total_puzzles += 1
@@ -286,6 +316,8 @@ def convert_dataset(config: DataProcessConfig):
             
             for k, v in results.items():
                 if k in {"inputs", "labels"}:
+                    v = np.stack(v, 0)
+                elif k == "aug_color_perm":
                     v = np.stack(v, 0)
                 else:
                     v = np.array(v, dtype=np.int32)
@@ -299,7 +331,8 @@ def convert_dataset(config: DataProcessConfig):
             pad_id=0,
             ignore_label_id=0,
             blank_identifier_id=0,
-            num_puzzle_identifiers=num_identifiers,
+            num_puzzle_identifiers=next_base_identifier,
+            num_aug_identifiers=next_aug_identifier,
             total_groups=total_groups,
             mean_puzzle_examples=total_examples / total_puzzles,
             total_puzzles=total_puzzles,
@@ -312,8 +345,8 @@ def convert_dataset(config: DataProcessConfig):
             
     # Save IDs mapping
     with open(os.path.join(config.output_dir, "identifiers.json"), "w") as f:
-        ids_mapping = {v: k for k, v in identifier_map.items()}
-        json.dump([ids_mapping.get(i, "<blank>") for i in range(num_identifiers)], f)
+        ids_mapping = {v: k for k, v in aug_identifier_map.items()}
+        json.dump([ids_mapping.get(i, "<blank>") for i in range(next_aug_identifier)], f)
     
     # Save Test Puzzles
     with open(os.path.join(config.output_dir, "test_puzzles.json"), "w") as f:
@@ -327,9 +360,6 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
-
-
 
 
 

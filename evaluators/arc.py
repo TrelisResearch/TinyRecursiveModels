@@ -37,7 +37,7 @@ def _crop(grid: np.ndarray):
 
 
 class ARC:
-    required_outputs = {"inputs", "puzzle_identifiers", "q_halt_logits", "preds"}
+    required_outputs = {"inputs", "puzzle_identifiers", "aug_identifiers", "q_halt_logits", "preds"}
     
     def __init__(self, data_path: str, 
         eval_metadata: PuzzleDatasetMetadata, 
@@ -82,11 +82,11 @@ class ARC:
         assert q_values is not None
 
         # Remove padding from outputs
-        mask = outputs["puzzle_identifiers"] != self.blank_identifier_id
+        mask = outputs["aug_identifiers"] != self.blank_identifier_id
         outputs = {k: v[mask] for k, v in outputs.items()}
 
         # Get predictions
-        for identifier, input, pred, q in zip(outputs["puzzle_identifiers"].numpy(), outputs["inputs"].numpy(), outputs["preds"].numpy(), q_values.numpy()):
+        for identifier, input, pred, q in zip(outputs["aug_identifiers"].numpy(), outputs["inputs"].numpy(), outputs["preds"].numpy(), q_values.numpy()):
             name = self.identifier_map[identifier]
             orig_name, _inverse_fn = inverse_aug(name)
             

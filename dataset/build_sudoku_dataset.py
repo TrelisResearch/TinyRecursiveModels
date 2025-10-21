@@ -84,7 +84,7 @@ def convert_subset(set_name: str, config: DataProcessConfig):
     # Generate dataset
     num_augments = config.num_aug if set_name == "train" else 0
 
-    results = {k: [] for k in ["inputs", "labels", "puzzle_identifiers", "puzzle_indices", "group_indices"]}
+    results = {k: [] for k in ["inputs", "labels", "puzzle_identifiers", "puzzle_indices", "group_indices", "aug_identifiers", "aug_dihedral", "aug_color_perm"]}
     puzzle_id = 0
     example_id = 0
     
@@ -107,6 +107,9 @@ def convert_subset(set_name: str, config: DataProcessConfig):
             
             results["puzzle_indices"].append(example_id)
             results["puzzle_identifiers"].append(0)
+            results["aug_identifiers"].append(0)
+            results["aug_dihedral"].append(0)
+            results["aug_color_perm"].append(np.arange(10, dtype=np.uint8))
             
         # Push group
         results["group_indices"].append(puzzle_id)
@@ -125,6 +128,9 @@ def convert_subset(set_name: str, config: DataProcessConfig):
         "group_indices": np.array(results["group_indices"], dtype=np.int32),
         "puzzle_indices": np.array(results["puzzle_indices"], dtype=np.int32),
         "puzzle_identifiers": np.array(results["puzzle_identifiers"], dtype=np.int32),
+        "aug_identifiers": np.array(results["aug_identifiers"], dtype=np.int32),
+        "aug_dihedral": np.array(results["aug_dihedral"], dtype=np.int32),
+        "aug_color_perm": np.stack(results["aug_color_perm"], axis=0).astype(np.int32),
     }
 
     # Metadata
@@ -135,6 +141,7 @@ def convert_subset(set_name: str, config: DataProcessConfig):
         ignore_label_id=0,
         blank_identifier_id=0,
         num_puzzle_identifiers=1,
+        num_aug_identifiers=1,
         total_groups=len(results["group_indices"]) - 1,
         mean_puzzle_examples=1,
         total_puzzles=len(results["group_indices"]) - 1,
