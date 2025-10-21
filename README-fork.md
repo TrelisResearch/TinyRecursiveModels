@@ -28,7 +28,7 @@ export GIT_USER_EMAIL="your@email.com"
 
 ### Slimmest
 ```bash
-run_name="pretrain_slimmest"
+run_name="pretrain_slimmest-cst-head-embpos"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2ethard-aug-1000 \
@@ -36,7 +36,7 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > pretrain_slimmest.log &
+  +run_name="${run_name}" > pretrain_slimmest-cst-head-embpos.log &
 ```
 
 ### Push trained model to HF
