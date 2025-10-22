@@ -47,4 +47,4 @@ min_eval_interval: 0 # when to start the eval
 ema: True # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
 freeze_weights: False # If True, freeze weights and only learn the embeddings
-freeze_weights_epochs: 6250
+freeze_weights_epochs: null
