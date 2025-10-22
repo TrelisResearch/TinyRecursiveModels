@@ -10,21 +10,21 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc2ethard-aug-1000']
+data_paths: ['data/arccm-aug-1000']
 data_paths_test: []
 
 evaluators:
   - name: arc@ARC
 
 # Hyperparams - Training
-global_batch_size: 192
+global_batch_size: 768
 
 epochs: 8000
 eval_interval: 4000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 
-lr: 0.25e-4
+lr: 1e-4
 lr_min_ratio: 1.0
 lr_warmup_steps: 2000
 
@@ -35,7 +35,7 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 0.25e-2
+puzzle_emb_lr: 1e-2
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
