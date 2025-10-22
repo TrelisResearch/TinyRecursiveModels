@@ -16,6 +16,7 @@ class PuzzleDatasetMetadata(pydantic.BaseModel):
     vocab_size: int
     seq_len: int
     num_puzzle_identifiers: int
+    num_aug_identifiers: int
     total_groups: int
     mean_puzzle_examples: float
     total_puzzles: int

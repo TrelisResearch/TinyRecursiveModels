@@ -35,6 +35,7 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     seq_len: int
     puzzle_emb_ndim: int = 0
     num_puzzle_identifiers: int
+    num_aug_identifiers: Optional[int] = None
     vocab_size: int
 
     H_cycles: int
@@ -62,6 +63,10 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     mlp_t: bool = False # use mlp on L instead of transformer
     puzzle_emb_len: int = 16 # if non-zero, its specified to this value
     no_ACT_continue: bool =  True # No continue ACT loss, only use the sigmoid of the halt which makes much more sense
+    aug_dihedral_emb_dim: int = 0
+    aug_color_pair_emb_dim: int = 0
+    num_dihedral_ops: int = 8
+    num_colors: int = 10
     
     # LoRA config
     lora_rank: int = 0
@@ -139,10 +144,49 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.q_head       = CastedLinear(self.config.hidden_size, 2, bias=True)
 
         self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)  if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len  # ceil div
+        self.puzzle_feature_dim = 0
+        self.puzzle_emb_adapter: Optional[CastedLinear] = None
+
         if self.config.puzzle_emb_ndim > 0:
             # Zero init puzzle embeddings
-            self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
-                                                    batch_size=self.config.batch_size, init_std=0, cast_to=self.forward_dtype)
+            self.puzzle_emb = CastedSparseEmbedding(
+                self.config.num_puzzle_identifiers,
+                self.config.puzzle_emb_ndim,
+                batch_size=self.config.batch_size,
+                init_std=0,
+                cast_to=self.forward_dtype
+            )
+            self.puzzle_feature_dim += self.config.puzzle_emb_ndim
+        else:
+            self.puzzle_emb = None
+
+        if self.config.aug_dihedral_emb_dim > 0:
+            dihedral_init_std = 1.0 / math.sqrt(max(self.config.aug_dihedral_emb_dim, 1))
+            self.aug_dihedral_emb = CastedEmbedding(
+                self.config.num_dihedral_ops,
+                self.config.aug_dihedral_emb_dim,
+                init_std=dihedral_init_std,
+                cast_to=self.forward_dtype
+            )
+            self.puzzle_feature_dim += self.config.aug_dihedral_emb_dim
+        else:
+            self.aug_dihedral_emb = None
+
+        if self.config.aug_color_pair_emb_dim > 0:
+            color_init_std = 1.0 / math.sqrt(max(self.config.aug_color_pair_emb_dim, 1))
+            self.aug_color_pair_emb = CastedEmbedding(
+                self.config.num_colors * self.config.num_colors,
+                self.config.aug_color_pair_emb_dim,
+                init_std=color_init_std,
+                cast_to=self.forward_dtype
+            )
+            self.puzzle_feature_dim += self.config.aug_color_pair_emb_dim
+        else:
+            self.aug_color_pair_emb = None
+
+        target_dim = self.puzzle_emb_len * self.config.hidden_size
+        if self.puzzle_feature_dim > 0 and self.puzzle_feature_dim != target_dim:
+            self.puzzle_emb_adapter = CastedLinear(self.puzzle_feature_dim, target_dim, bias=False)
 
         # LM Blocks
         if self.config.pos_encodings == "rope":
@@ -167,19 +211,47 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             self.q_head.weight.zero_()
             self.q_head.bias.fill_(-5)  # type: ignore
 
-    def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor):
+    def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor, batch: Dict[str, torch.Tensor]):
         # Token embedding
         embedding = self.embed_tokens(input.to(torch.int32))
 
         # Puzzle embeddings
-        if self.config.puzzle_emb_ndim > 0:
-            puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
-            
-            pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
-            if pad_count > 0:
-                puzzle_embedding = F.pad(puzzle_embedding, (0, pad_count))
+        if self.puzzle_feature_dim > 0:
+            batch_size = puzzle_identifiers.shape[0]
+            device = embedding.device
+            feature_parts: List[torch.Tensor] = []
 
-            embedding = torch.cat((puzzle_embedding.view(-1, self.puzzle_emb_len, self.config.hidden_size), embedding), dim=-2)
+            if self.config.puzzle_emb_ndim > 0 and self.puzzle_emb is not None:
+                feature_parts.append(self.puzzle_emb(puzzle_identifiers))
+
+            if self.config.aug_dihedral_emb_dim > 0:
+                if "aug_dihedral" in batch:
+                    dihedral_idx = batch["aug_dihedral"].to(torch.long)
+                    feature_parts.append(self.aug_dihedral_emb(dihedral_idx))
+                else:
+                    feature_parts.append(torch.zeros(batch_size, self.config.aug_dihedral_emb_dim, dtype=self.forward_dtype, device=device))
+
+            if self.config.aug_color_pair_emb_dim > 0:
+                if "aug_color_perm" in batch:
+                    color_perm = batch["aug_color_perm"].to(torch.long)
+                    num_colors = color_perm.shape[-1]
+                    src = torch.arange(num_colors, device=color_perm.device, dtype=torch.long).unsqueeze(0).expand_as(color_perm)
+                    pair_idx = src * num_colors + color_perm
+                    pair_embeddings = self.aug_color_pair_emb(pair_idx)
+                    change_mask = (color_perm != src)
+                    masked_embeddings = pair_embeddings * change_mask.unsqueeze(-1).to(pair_embeddings.dtype)
+                    counts = change_mask.sum(dim=-1, keepdim=True).clamp(min=1).to(pair_embeddings.dtype)
+                    color_feature = masked_embeddings.sum(dim=1) / counts
+                    feature_parts.append(color_feature)
+                else:
+                    feature_parts.append(torch.zeros(batch_size, self.config.aug_color_pair_emb_dim, dtype=self.forward_dtype, device=device))
+
+            if feature_parts:
+                puzzle_feature = torch.cat(feature_parts, dim=-1)
+                if self.puzzle_emb_adapter is not None:
+                    puzzle_feature = self.puzzle_emb_adapter(puzzle_feature)
+                puzzle_feature = puzzle_feature.view(-1, self.puzzle_emb_len, self.config.hidden_size)
+                embedding = torch.cat((puzzle_feature, embedding), dim=-2)
 
         # Position embeddings
         if self.config.pos_encodings == "learned":
@@ -207,7 +279,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         )
 
         # Input encoding
-        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
+        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"], batch)
 
         # Forward iterations
         it = 0
