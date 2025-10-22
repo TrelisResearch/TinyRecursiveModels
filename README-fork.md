@@ -39,6 +39,19 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_slim_100k.log &
 ```
 
+```bash
+run_name="pretrain_slim_200k"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2ethard-aug-1000 \
+  --subsets traininghard evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels/checkpoints/Arc2ethard-aug-1000-ACT-torch/pretrain_slim_100k/step_27552 \
+  +run_name="${run_name}" > pretrain_slim_200k.log &
+```
+
 ### Push trained model to HF
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
