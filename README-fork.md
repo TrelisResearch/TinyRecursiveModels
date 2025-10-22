@@ -53,6 +53,28 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_base.log &
 ```
 
+### Post train evalconcept on AA1 Concept Manual
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  all_config.yaml losses.py step_723914 trm.py \
+  --local-dir pretrained
+```
+
+```bash
+run_name="posttrain_base"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arccm-aug-1000 \
+  --subsets concept manual_evaluation \
+  --test-set-name concept \
+  --test-set-name2 manual_evaluation && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
+  +run_name="${run_name}" > posttrain_base.log &
+```
+
 ### Push trained model to HF
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
