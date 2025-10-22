@@ -534,7 +534,7 @@ def evaluate(
 
             metric_values[set_id] += torch.stack([metrics[k] for k in metric_keys])
 
-            del metrics, carry, loss, preds, all_finish, batch
+            del metrics
 
         # concatenate save preds
         save_preds = {k: torch.cat(v, dim=0) for k, v in save_preds.items()}
