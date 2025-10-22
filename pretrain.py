@@ -507,8 +507,6 @@ def evaluate(
             for evaluator in evaluators:
                 evaluator.update_batch(batch, preds)
 
-            del carry, loss, preds, batch, all_finish
-
             # Aggregate metrics
             cosine_val = compute_embedding_cosine(
                 train_state.model,
@@ -532,7 +530,7 @@ def evaluate(
 
             metric_values[set_id] += torch.stack([metrics[k] for k in metric_keys])
 
-            del metrics
+            del metrics, carry, loss, preds, all_finish, batch
 
         # concatenate save preds
         save_preds = {k: torch.cat(v, dim=0) for k, v in save_preds.items()}
