@@ -38,6 +38,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   --config-name cfg_pretrain \
   +run_name="${run_name}" > pretrain_base.log &
 ```
+
 ### Base AA1 Concept Manual
 ```bash
 run_name="pretrain_base"
