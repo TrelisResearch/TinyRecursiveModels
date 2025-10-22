@@ -110,6 +110,7 @@ class TrainState:
 
     step: int
     total_steps: int
+    blank_identifier_id: int
 
 
 def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size: int, max_eval_augmentations: Optional[int] = None, **kwargs):
@@ -206,10 +207,11 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         ]
         optimizer_lrs = [
             config.puzzle_emb_lr,
-            config.lr
-        ]
+        config.lr
+    ]
 
     return model, optimizers, optimizer_lrs
+
 
 def mix_weights_direct(device, alpha, net, nets):
     sd = []
@@ -248,7 +250,8 @@ def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetada
         model=model,
         optimizers=optimizers,
         optimizer_lrs=optimizer_lrs,
-        carry=None
+        carry=None,
+        blank_identifier_id=train_metadata.blank_identifier_id
     )
 
 
@@ -329,6 +332,27 @@ def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
     return embed_sq.sqrt(), trunk_sq.sqrt()
 
 
+def compute_embedding_cosine(model: nn.Module, identifiers: torch.Tensor, blank_id: int) -> torch.Tensor:
+    """Mean pairwise cosine similarity between unique puzzle embeddings referenced by `identifiers`."""
+    unique_ids = torch.unique(identifiers)
+    unique_ids = unique_ids[unique_ids != blank_id]
+    if unique_ids.numel() <= 1:
+        return torch.zeros((), device=identifiers.device, dtype=torch.float32)
+
+    core_model = getattr(model, "model", None)
+    inner = getattr(core_model, "inner", None) if core_model is not None else None
+    puzzle_emb = getattr(inner, "puzzle_emb", None) if inner is not None else None
+    if puzzle_emb is None:
+        return torch.zeros((), device=identifiers.device, dtype=torch.float32)
+
+    weight_matrix = puzzle_emb.weights[unique_ids.long()].to(torch.float32)  # type: ignore
+    norms = weight_matrix.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+    normalized = weight_matrix / norms
+    cosine_matrix = normalized @ normalized.T
+    off_diag = cosine_matrix.sum() - torch.trace(cosine_matrix)
+    pairs = unique_ids.numel() * (unique_ids.numel() - 1)
+    return off_diag / pairs
+
 
 def create_evaluators(config: PretrainConfig, eval_metadata: PuzzleDatasetMetadata) -> List[Any]:
     data_paths =config.data_paths_test if len(config.data_paths_test)>0 else config.data_paths
@@ -371,13 +395,23 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
     grad_embed_norm, grad_trunk_norm = compute_grad_norms(train_state.model)
     if metrics is not None:
         count_tensor = metrics.get("count")
+        grad_embed = grad_embed_norm.detach()
+        grad_trunk = grad_trunk_norm.detach()
+        embedding_cosine = compute_embedding_cosine(
+            train_state.model,
+            batch["puzzle_identifiers"],
+            train_state.blank_identifier_id,
+        ).detach()
+
         if count_tensor is not None:
-            scaling = torch.clamp(count_tensor.to(grad_embed_norm.dtype), min=1.0)
-            metrics["grad_embed_norm"] = grad_embed_norm.detach() * scaling
-            metrics["grad_trunk_norm"] = grad_trunk_norm.detach() * scaling
+            scaling = torch.clamp(count_tensor.to(grad_embed.dtype), min=1.0)
+            metrics["grad_embed_norm"] = grad_embed * scaling
+            metrics["grad_trunk_norm"] = grad_trunk * scaling
+            metrics["embedding_cosine"] = embedding_cosine * scaling
         else:
-            metrics["grad_embed_norm"] = grad_embed_norm.detach()
-            metrics["grad_trunk_norm"] = grad_trunk_norm.detach()
+            metrics["grad_embed_norm"] = grad_embed
+            metrics["grad_trunk_norm"] = grad_trunk
+            metrics["embedding_cosine"] = embedding_cosine
 
     # Apply optimizer
     lr_this_step = None    
@@ -476,6 +510,16 @@ def evaluate(
             del carry, loss, preds, batch, all_finish
 
             # Aggregate metrics
+            cosine_val = compute_embedding_cosine(
+                train_state.model,
+                batch["puzzle_identifiers"],
+                train_state.blank_identifier_id,
+            ).detach()
+            if "count" in metrics:
+                metrics["embedding_cosine"] = cosine_val * metrics["count"].clamp(min=1)
+            else:
+                metrics["embedding_cosine"] = cosine_val
+
             set_id = set_ids[set_name]
 
             if metric_values is None:
