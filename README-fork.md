@@ -24,9 +24,9 @@ export GIT_USER_EMAIL="your@email.com"
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
 
-## Training Details for ARC-AGI-2
+## Training Details
 
-### Slim
+### Base Evaluation Training Hard
 ```bash
 run_name="pretrain_base"
 python -m dataset.build_arc_dataset \
@@ -34,6 +34,18 @@ python -m dataset.build_arc_dataset \
   --output-dir data/arc2ethard-aug-1000 \
   --subsets traininghard evaluation2 \
   --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > pretrain_base.log &
+```
+### Base AA1 Concept Manual
+```bash
+run_name="pretrain_base"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arccm-aug-1000 \
+  --test-set-name concept \
+  --test-set-name2 manual && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   +run_name="${run_name}" > pretrain_base.log &
