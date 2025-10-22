@@ -507,8 +507,6 @@ def evaluate(
             for evaluator in evaluators:
                 evaluator.update_batch(batch, preds)
 
-            del carry, loss, preds, batch, all_finish
-
             # Aggregate metrics
             cosine_val = compute_embedding_cosine(
                 train_state.model,
@@ -521,6 +519,8 @@ def evaluate(
                 metrics["embedding_cosine"] = cosine_val
 
             set_id = set_ids[set_name]
+
+            del carry, loss, preds, all_finish, batch
 
             if metric_values is None:
                 metric_keys = list(
