@@ -1,4 +1,4 @@
-# LoRA fine-tuning config
+# ARC training config
 
 defaults:
   - arch: trm
@@ -10,7 +10,7 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc-eval2-aug-1000']
+data_paths: ['data/arc2ethard-aug-1000']
 data_paths_test: []
 
 load_checkpoint: null
@@ -20,15 +20,15 @@ evaluators:
   - name: arc@ARC
 
 # Hyperparams - Training
-global_batch_size: 768
+global_batch_size: 384
 
 epochs: 12500
-eval_interval: 3125
+eval_interval: 12500
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 eval_max_augmentations: 256
 
-lr: 1e-4
+lr: 0.7e-4
 lr_min_ratio: 1.0
 lr_warmup_steps: 2000
 
@@ -39,7 +39,7 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1e-2
+puzzle_emb_lr: 0.7e-2
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
@@ -47,11 +47,4 @@ min_eval_interval: 0 # when to start the eval
 ema: True # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
 freeze_weights: False # If True, freeze weights and only learn the embeddings
-freeze_weights_epochs: null
-
-arch:
-  lora_rank: 1
-  lora_alpha: 16.0
-  lora_dropout: 0.0
-  lora_train_base: false
-  lora_train_bias: false
+freeze_weights_epochs: 6250

@@ -10,7 +10,7 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arccm-aug-1000']
+data_paths: ['data/arc-eval2-aug-1000']
 data_paths_test: []
 
 load_checkpoint: null
@@ -22,11 +22,11 @@ evaluators:
 # Hyperparams - Training
 global_batch_size: 768
 
-epochs: 8000
-eval_interval: 2000
+epochs: 12500
+eval_interval: 3125
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
-eval_max_augmentations: 64
+eval_max_augmentations: 256
 
 lr: 1e-4
 lr_min_ratio: 1.0

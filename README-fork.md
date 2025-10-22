@@ -38,6 +38,18 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   --config-name cfg_pretrain \
   +run_name="${run_name}" > pretrain_base.log &
 ```
+or for L4:
+```bash
+run_name="pretrain_base_l4"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2ethard-aug-1000 \
+  --subsets traininghard evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_l4 \
+  +run_name="${run_name}" > pretrain_base_l4.log &
+```
 
 ### Base AA1 Concept Manual
 ```bash
@@ -116,17 +128,49 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 \
   --num-aug 1000
 ```
+- **Full tuning**:
+```bash
+run_name="posttrain_aa1_aa2e"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_aa2e.log &
+```
+- **Freeze Embeddings**:
+```bash
+run_name="posttrain_aa1_aa2e_fe"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  freeze_weights=True \
+  +run_name=${run_name} > posttrain_aa1_aa2e_fe.log &
+```
+- **Freeze Embeddings for first half**:
+```bash
+run_name="posttrain_aa1_aa2e_feh"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  freeze_weights=True \
+  freeze_weights_epochs=6250 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_feh.log &
+```
 - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
-run_name="lora_manual_Trelis_eval2_aa1_model_r32"
+run_name="posttrain_aa1_aa2e_lora"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain_lora \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  +run_name=${run_name} > lora-eval2-aa1.log &
+  +run_name=${run_name} > posttrain_aa1_aa2e_lora.log &
 ```
-
 ## LoRA testing for Kaggle
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
