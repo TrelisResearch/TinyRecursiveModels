@@ -94,6 +94,7 @@ class PretrainConfig(pydantic.BaseModel):
     ema: bool = False # use Exponential-Moving-Average
     ema_rate: float = 0.999 # EMA-rate
     freeze_weights: bool = False # If True, freeze weights and only learn the embeddings
+    freeze_weights_epochs: Optional[int] = None # If set and freeze_weights is True, number of initial epochs to keep trunk frozen
 
     # Dataloader controls
     dataloader_num_workers: int = 1
@@ -106,11 +107,14 @@ class TrainState:
     model: nn.Module
     optimizers: Sequence[torch.optim.Optimizer]
     optimizer_lrs: Sequence[float]
+    optimizer_tags: Sequence[str]
     carry: Any
 
     step: int
     total_steps: int
     blank_identifier_id: int
+    freeze_trunk_until_step: Optional[int]
+    trunk_frozen_active: bool
 
 
 def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size: int, max_eval_augmentations: Optional[int] = None, **kwargs):
@@ -165,6 +169,8 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                     dist.broadcast(param, src=0)
 
     # Optimizers and lr
+    optimizer_tags: List[str]
+
     if config.arch.puzzle_emb_ndim == 0:
         optimizers = [
             AdamAtan2(
@@ -177,7 +183,10 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         optimizer_lrs = [
             config.lr
         ]
+        optimizer_tags = ["trunk"]
     elif config.freeze_weights:
+        freeze_epochs = config.freeze_weights_epochs
+        add_trunk_optimizer = freeze_epochs is not None and max(0, freeze_epochs) < config.epochs
         optimizers = [
             CastedSparseEmbeddingSignSGD_Distributed(
                 model.model.puzzle_emb.buffers(),  # type: ignore
@@ -189,6 +198,18 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         optimizer_lrs = [
             config.puzzle_emb_lr
         ]
+        optimizer_tags = ["embedding"]
+        if add_trunk_optimizer:
+            optimizers.append(
+                AdamAtan2(
+                    model.parameters(),
+                    lr=0.0001,  # Needs to be set by scheduler
+                    weight_decay=config.weight_decay,
+                    betas=(config.beta1, config.beta2)
+                )
+            )
+            optimizer_lrs.append(config.lr)
+            optimizer_tags.append("trunk")
     else:
         optimizers = [
             CastedSparseEmbeddingSignSGD_Distributed(
@@ -208,8 +229,9 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
             config.puzzle_emb_lr,
             config.lr
         ]
+        optimizer_tags = ["embedding", "trunk"]
 
-    return model, optimizers, optimizer_lrs
+    return model, optimizers, optimizer_lrs, optimizer_tags
 
 def mix_weights_direct(device, alpha, net, nets):
     sd = []
@@ -239,7 +261,18 @@ def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetada
     total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
 
     # Model
-    model, optimizers, optimizer_lrs = create_model(config, train_metadata, rank=rank, world_size=world_size)
+    model, optimizers, optimizer_lrs, optimizer_tags = create_model(config, train_metadata, rank=rank, world_size=world_size)
+
+    freeze_trunk_until_step: Optional[int] = None
+    if config.freeze_weights and any(tag == "trunk" for tag in optimizer_tags):
+        freeze_epochs = config.freeze_weights_epochs
+        if freeze_epochs is not None:
+            freeze_epochs = max(0, freeze_epochs)
+            if freeze_epochs >= config.epochs:
+                freeze_trunk_until_step = total_steps
+            elif config.epochs > 0:
+                freeze_ratio = freeze_epochs / config.epochs
+                freeze_trunk_until_step = max(0, math.ceil(total_steps * freeze_ratio))
 
     return TrainState(
         step=0,
@@ -248,8 +281,11 @@ def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetada
         model=model,
         optimizers=optimizers,
         optimizer_lrs=optimizer_lrs,
+        optimizer_tags=optimizer_tags,
         carry=None,
-        blank_identifier_id=train_metadata.blank_identifier_id
+        blank_identifier_id=train_metadata.blank_identifier_id,
+        freeze_trunk_until_step=freeze_trunk_until_step,
+        trunk_frozen_active=freeze_trunk_until_step is not None and freeze_trunk_until_step > 0
     )
 
 
@@ -412,8 +448,21 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
             metrics["embedding_cosine"] = embedding_cosine
 
     # Apply optimizer
-    lr_this_step = None    
-    for optim, base_lr in zip(train_state.optimizers, train_state.optimizer_lrs):
+    trunk_frozen = False
+    if train_state.freeze_trunk_until_step is not None:
+        if train_state.step <= train_state.freeze_trunk_until_step:
+            trunk_frozen = True
+        else:
+            if train_state.trunk_frozen_active and rank == 0:
+                print(f"Unfreezing trunk optimizer at step {train_state.step}")
+            train_state.trunk_frozen_active = False
+            train_state.freeze_trunk_until_step = None
+
+    lr_this_step = None
+    for optim, base_lr, tag in zip(train_state.optimizers, train_state.optimizer_lrs, train_state.optimizer_tags):
+        if tag == "trunk" and trunk_frozen:
+            optim.zero_grad()
+            continue
         lr_this_step = compute_lr(base_lr, config, train_state)
 
         for param_group in optim.param_groups:

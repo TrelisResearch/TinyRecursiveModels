@@ -75,6 +75,26 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > posttrain_base.log &
 ```
 
+And to only train embeds
+```bash
+run_name="posttrain_base_embs"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
+  freeze_weights=True \
+  +run_name="${run_name}" > posttrain_base_embs.log &
+```
+And to only train embeds for first half:
+```bash
+run_name="posttrain_base_embs_start"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
+  freeze_weights=True \
+  freeze_weights_epochs=4000 \
+  +run_name="${run_name}" > posttrain_base_embs_start.log &
+```
+
 ### Push trained model to HF
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
