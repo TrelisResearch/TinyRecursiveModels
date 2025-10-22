@@ -507,10 +507,12 @@ def evaluate(
             for evaluator in evaluators:
                 evaluator.update_batch(batch, preds)
 
+            puzzle_ids = batch["puzzle_identifiers"]
+
             # Aggregate metrics
             cosine_val = compute_embedding_cosine(
                 train_state.model,
-                batch["puzzle_identifiers"],
+                puzzle_ids,
                 train_state.blank_identifier_id,
             ).detach()
             if "count" in metrics:
@@ -520,7 +522,7 @@ def evaluate(
 
             set_id = set_ids[set_name]
 
-            del carry, loss, preds, all_finish, batch
+            del carry, loss, preds, all_finish, batch, puzzle_ids
 
             if metric_values is None:
                 metric_keys = list(
