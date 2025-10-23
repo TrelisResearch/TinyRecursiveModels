@@ -104,6 +104,17 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint="pretrained/step_155718" \
   +run_name=${run_name} > posttrain_aa1_tem2.log &
 ```
+- **Full tuning - normal init**:
+```bash
+run_name="posttrain_aa1_tem2"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths="['data/arc-tem2-aug-1000']" \
+  data_paths_test="['data/arc-tem2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  puzzle_emb_reinit_strategy="normal" \
+  +run_name=${run_name} > posttrain_aa1_tem2.log &
+```
 - **Freeze Embeddings**:
 ```bash
 run_name="posttrain_aa1_tem2_fe"
@@ -113,6 +124,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   freeze_weights=True \
+  puzzle_emb_reinit_strategy="normal" \
   +run_name=${run_name} > posttrain_aa1_tem2_fe.log &
 ```
 - **Freeze Embeddings for first half**:
@@ -125,6 +137,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint="pretrained/step_155718" \
   freeze_weights=True \
   freeze_weights_epochs=6250 \
+  puzzle_emb_reinit_strategy="normal" \
   +run_name=${run_name} > posttrain_aa1_tem2_feh.log &
 ```
 <!-- - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:

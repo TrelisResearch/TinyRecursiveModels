@@ -74,6 +74,7 @@ class PretrainConfig(pydantic.BaseModel):
     # Puzzle embedding
     puzzle_emb_lr: float
     puzzle_emb_weight_decay: float
+    puzzle_emb_reinit_strategy: str = "mean"
 
     # Names
     project_name: Optional[str] = None
@@ -312,10 +313,18 @@ def load_checkpoint(model: nn.Module, config: PretrainConfig):
             puzzle_emb = state_dict[puzzle_emb_name]
             if puzzle_emb.shape != expected_shape:
                 print(f"Resetting puzzle embedding as shape is different. Found {puzzle_emb.shape}, Expected {expected_shape}")
-                # Re-initialize using mean
-                state_dict[puzzle_emb_name] = (
-                    torch.mean(puzzle_emb, dim=0, keepdim=True).expand(expected_shape).contiguous()
-                )
+                strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
+                puzzle_emb_float = puzzle_emb.to(torch.float32)
+                mean_vec = torch.mean(puzzle_emb_float, dim=0, keepdim=True)
+                if strategy == "mean":
+                    state_dict[puzzle_emb_name] = mean_vec.expand(expected_shape).to(puzzle_emb.dtype).contiguous()
+                elif strategy == "normal":
+                    std_vec = torch.std(puzzle_emb_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
+                    noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
+                    new_weights = noise * std_vec + mean_vec
+                    state_dict[puzzle_emb_name] = new_weights.to(puzzle_emb.dtype).contiguous()
+                else:
+                    raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False, assign=True)
         if len(unexpected_keys):
             print(f"Warning: unexpected checkpoint keys skipped: {unexpected_keys[:5]}{'...' if len(unexpected_keys) > 5 else ''}")
