@@ -98,7 +98,7 @@ uv run python -m dataset.build_arc_dataset \
 ```bash
 run_name="posttrain_aa1_tem2"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain_a100 \
+  --config-name cfg_posttrain \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
@@ -109,7 +109,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```bash
 run_name="posttrain_aa1_tem2_norm"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain_a100 \
+  --config-name cfg_posttrain \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
@@ -120,7 +120,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```bash
 run_name="posttrain_aa1_tem2_fe"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain_a100 \
+  --config-name cfg_posttrain \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
@@ -132,7 +132,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```bash
 run_name="posttrain_aa1_tem2_feh"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain_a100 \
+  --config-name cfg_posttrain \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
