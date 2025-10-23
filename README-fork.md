@@ -41,7 +41,7 @@ python -m dataset.build_arc_dataset \
   --output-dir data/arc2ethard-aug-1000 \
   --subsets concept training evaluation2 \
   --test-set-name evaluation2 && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
   +run_name="${run_name}" > ctdpretrain_original.log &
@@ -53,7 +53,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 run_name="pretrain_base"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2ethard-aug-1000 \
+  --output-dir data/arc2concept-aug-1000 \
   --subsets traininghard evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
