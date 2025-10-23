@@ -102,6 +102,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
+  puzzle_emb_reinit_strategy="mean" \  
   +run_name=${run_name} > posttrain_aa1_tem2.log &
 ```
 - **Full tuning - normal init**:
