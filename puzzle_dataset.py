@@ -149,6 +149,15 @@ class PuzzleDataset(IterableDataset):
                 if self.config.test_set_mode and self.config.max_eval_augmentations is not None:
                     self._data[set_name_] = self._limit_eval_augmentations(self._data[set_name_], self.config.max_eval_augmentations)
 
+                group_indices = self._data[set_name_]["group_indices"]
+                num_groups = group_indices.size - 1
+                puzzle_group_ids = np.empty(int(group_indices[-1]), dtype=np.int32)
+                for group_id in range(num_groups):
+                    start = int(group_indices[group_id])
+                    end = int(group_indices[group_id + 1])
+                    puzzle_group_ids[start:end] = group_id
+                self._data[set_name_]["puzzle_group_ids"] = puzzle_group_ids
+
 
     def _limit_eval_augmentations(self, dataset: Dict[str, np.ndarray], max_aug: int):
         # Keep the original puzzle plus up to max_aug augmented variants per group.
@@ -212,7 +221,8 @@ class PuzzleDataset(IterableDataset):
             pad_values = {
                 "inputs": self.metadata.pad_id,
                 "labels": IGNORE_LABEL_ID,
-                "puzzle_identifiers": self.metadata.blank_identifier_id
+                "puzzle_identifiers": self.metadata.blank_identifier_id,
+                "task_identifiers": -1
             }
             batch = {k: np.pad(v, ((0, pad_size), ) + ((0, 0), ) * (v.ndim - 1), constant_values=pad_values[k]) for k, v in batch.items()}
 
@@ -244,7 +254,8 @@ class PuzzleDataset(IterableDataset):
                 batch = self._collate_batch({
                     "inputs": dataset["inputs"][local_start: local_end],
                     "labels": dataset["labels"][local_start: local_end],
-                    "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices]
+                    "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices],
+                    "task_identifiers": dataset["puzzle_group_ids"][puzzle_indices]
                 })
 
                 yield set_name, batch, end_index - start_index
@@ -285,7 +296,8 @@ class PuzzleDataset(IterableDataset):
                 batch = self._collate_batch({
                     "inputs": dataset["inputs"][batch_indices],
                     "labels": dataset["labels"][batch_indices],
-                    "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices]
+                    "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices],
+                    "task_identifiers": dataset["puzzle_group_ids"][batch_puzzle_indices]
                 })
 
                 yield set_name, batch, global_effective_batch_size
