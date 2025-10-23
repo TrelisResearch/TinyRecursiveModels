@@ -23,7 +23,7 @@ evaluators:
 global_batch_size: 384
 
 epochs: 12500
-eval_interval: 12500
+eval_interval: 3125
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 eval_max_augmentations: 256

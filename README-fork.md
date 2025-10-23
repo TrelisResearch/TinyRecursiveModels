@@ -87,7 +87,7 @@ hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
 ```
 - **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
 ```bash
-python -m dataset.build_arc_dataset \
+uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc-tem2-aug-1000 \
   --subsets tem2 \
@@ -98,7 +98,7 @@ python -m dataset.build_arc_dataset \
 ```bash
 run_name="posttrain_aa1_tem2"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_pretrain \
+  --config-name cfg_posttrain_a100 \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
@@ -106,20 +106,20 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```
 - **Full tuning - normal init**:
 ```bash
-run_name="posttrain_aa1_tem2"
+run_name="posttrain_aa1_tem2_norm"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_pretrain \
+  --config-name cfg_posttrain_a100 \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   puzzle_emb_reinit_strategy="normal" \
-  +run_name=${run_name} > posttrain_aa1_tem2.log &
+  +run_name=${run_name} > posttrain_aa1_tem2_norm.log &
 ```
 - **Freeze Embeddings**:
 ```bash
 run_name="posttrain_aa1_tem2_fe"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_pretrain \
+  --config-name cfg_posttrain_a100 \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
@@ -131,7 +131,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```bash
 run_name="posttrain_aa1_tem2_feh"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_pretrain \
+  --config-name cfg_posttrain_a100 \
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
