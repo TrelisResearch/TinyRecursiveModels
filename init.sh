@@ -10,8 +10,8 @@ else
   uv venv .venv -p 3.10
 fi
 . .venv/bin/activate
-grep -q "TinyRecursiveModels/.venv/bin/activate" /root/.bashrc || \
-  echo "source /workspace/TinyRecursiveModels/.venv/bin/activate" >> /root/.bashrc
+grep -q "TinyRecursiveModels-private/.venv/bin/activate" /root/.bashrc || \
+  echo "source /workspace/TinyRecursiveModels-private/.venv/bin/activate" >> /root/.bashrc
 
 # Upgrade pip, wheel, setuptools (per README, using uv)
 uv pip install --upgrade pip wheel setuptools
