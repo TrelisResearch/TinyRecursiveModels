@@ -38,7 +38,7 @@ hf download Trelis/TRM-ARC-AGI-II \
 run_name="ctdpretrain_original"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2ethard-aug-1000 \
+  --output-dir data/arc2concept-aug-1000 \
   --subsets concept training2 evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
