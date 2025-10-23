@@ -26,6 +26,20 @@ export GIT_USER_EMAIL="your@email.com"
 
 ## Training Details for ARC-AGI-2
 
+### base pretraining
+```bash
+run_name="ctdtrain_base_25k"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-1000 \
+  --subsets training2 evaluation2 concept \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > pretrain_base_25k.log &
+```
+
+
 ### base-in ctd pretraining
 ```bash
 uv pip install hf_transfer
@@ -43,6 +57,7 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
+  load_checkpoint="pretrained/step_27520" \
   +run_name="${run_name}" > ctdtrain_base_25k.log &
 ```
 
