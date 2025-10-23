@@ -73,67 +73,11 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_base_l4.log &
 ```
 
-### Base AA1 Concept Manual
-```bash
-run_name="pretrain_base"
-python -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arccm-aug-1000 \
-  --subsets concept manual_evaluation \
-  --test-set-name concept \
-  --test-set-name2 manual_evaluation && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain \
-  +run_name="${run_name}" > pretrain_base.log &
-```
-
-### Post train evalconcept on AA1 Concept Manual
-```bash
-uv pip install hf_transfer
-hf download Trelis/TRM-ARC-AGI-II \
-  all_config.yaml losses.py step_723914 trm.py \
-  --local-dir pretrained
-```
-
-```bash
-run_name="posttrain_base"
-python -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arccm-aug-1000 \
-  --subsets concept manual_evaluation \
-  --test-set-name concept \
-  --test-set-name2 manual_evaluation && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain \
-  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
-  +run_name="${run_name}" > posttrain_base.log &
-```
-
-And to only train embeds
-```bash
-run_name="posttrain_base_embs"
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain \
-  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
-  freeze_weights=True \
-  +run_name="${run_name}" > posttrain_base_embs.log &
-```
-And to only train embeds for first half:
-```bash
-run_name="posttrain_base_embs_start"
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain \
-  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
-  freeze_weights=True \
-  freeze_weights_epochs=4000 \
-  +run_name="${run_name}" > posttrain_base_embs_start.log &
-```
-
 ### Push trained model to HF
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
-## Eval dataset on aa1 model
+## tem2 dataset on aa1 model
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 uv pip install hf_transfer
@@ -145,45 +89,45 @@ hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
 ```bash
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc-eval2-aug-1000 \
-  --subsets evaluation2 \
-  --test-set-name evaluation2 \
+  --output-dir data/arc-tem2-aug-1000 \
+  --subsets tem2 \
+  --test-set-name tem2 \
   --num-aug 1000
 ```
-- **Full tuning**:
+- **Full tuning - mean init**:
 ```bash
-run_name="posttrain_aa1_aa2e"
+run_name="posttrain_aa1_tem2"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain \
-  data_paths="['data/arc-eval2-aug-1000']" \
-  data_paths_test="['data/arc-eval2-aug-1000']" \
+  data_paths="['data/arc-tem2-aug-1000']" \
+  data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  +run_name=${run_name} > posttrain_aa1_aa2e.log &
+  +run_name=${run_name} > posttrain_aa1_tem2.log &
 ```
 - **Freeze Embeddings**:
 ```bash
-run_name="posttrain_aa1_aa2e_fe"
+run_name="posttrain_aa1_tem2_fe"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain \
-  data_paths="['data/arc-eval2-aug-1000']" \
-  data_paths_test="['data/arc-eval2-aug-1000']" \
+  data_paths="['data/arc-tem2-aug-1000']" \
+  data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   freeze_weights=True \
-  +run_name=${run_name} > posttrain_aa1_aa2e_fe.log &
+  +run_name=${run_name} > posttrain_aa1_tem2_fe.log &
 ```
 - **Freeze Embeddings for first half**:
 ```bash
-run_name="posttrain_aa1_aa2e_feh"
+run_name="posttrain_aa1_tem2_feh"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_pretrain \
-  data_paths="['data/arc-eval2-aug-1000']" \
-  data_paths_test="['data/arc-eval2-aug-1000']" \
+  data_paths="['data/arc-tem2-aug-1000']" \
+  data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   freeze_weights=True \
   freeze_weights_epochs=6250 \
-  +run_name=${run_name} > posttrain_aa1_aa2e_feh.log &
+  +run_name=${run_name} > posttrain_aa1_tem2_feh.log &
 ```
-- **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
+<!-- - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
 run_name="posttrain_aa1_aa2e_lora"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
@@ -192,7 +136,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   +run_name=${run_name} > posttrain_aa1_aa2e_lora.log &
-```
+``` -->
 ## LoRA testing for Kaggle
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
