@@ -83,10 +83,7 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 uv pip install hf_transfer
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
   all_config.yaml losses.py step_155718 trm.py \
-  --local-dir pretrained
-```
-- **Build your adaptation set:** Re-use the ARC builder to target the tasks you want to adapt on (e.g., just the evaluation puzzles) while keeping their test grids for scoring:
-```bash
+  --local-dir pretrained && \
 uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc-tem2-aug-1000 \
@@ -102,7 +99,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-tem2-aug-1000']" \
   data_paths_test="['data/arc-tem2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  puzzle_emb_reinit_strategy="mean" \  
+  puzzle_emb_reinit_strategy="mean" \
   +run_name=${run_name} > posttrain_aa1_tem2.log &
 ```
 - **Full tuning - normal init**:
@@ -138,8 +135,21 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint="pretrained/step_155718" \
   freeze_weights=True \
   freeze_weights_epochs=6250 \
-  puzzle_emb_reinit_strategy="normal" \
+  puzzle_emb_reinit_strategy="mean" \
   +run_name=${run_name} > posttrain_aa1_tem2_feh.log &
+```
+
+```bash
+run_name="posttrain_aa1_tem2_feh_norm"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-tem2-aug-1000']" \
+  data_paths_test="['data/arc-tem2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  freeze_weights=True \
+  freeze_weights_epochs=6250 \
+  puzzle_emb_reinit_strategy="normal" \
+  +run_name=${run_name} > posttrain_aa1_tem2_feh_norm.log &
 ```
 <!-- - **Run LoRA tuning:** Switch to the LoRA config, point at the freshly built data, and load the base checkpoint:
 ```bash
