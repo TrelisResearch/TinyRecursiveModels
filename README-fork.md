@@ -26,6 +26,28 @@ export GIT_USER_EMAIL="your@email.com"
 
 ## Training Details
 
+### Original ctd pretraining
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  all_config.yaml losses.py step_723914 trm.py \
+  --local-dir pretrained
+```
+
+```bash
+run_name="ctdpretrain_original"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2ethard-aug-1000 \
+  --subsets concept training evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels/pretrained/step_723914 \
+  +run_name="${run_name}" > ctdpretrain_original.log &
+```
+
+
 ### Base Evaluation Training Hard
 ```bash
 run_name="pretrain_base"
