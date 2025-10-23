@@ -1,7 +1,7 @@
 # Additional Documentation
 
 ## Runpod One-click Template
-Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=1urgylpi1x&ref=jmfkcdio)). Note: This is a Trelis template and is an affiliate link.
+Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=tduftocnct&ref=jmfkcdio)). Note: This is a Trelis template and is an affiliate link.
 
 ## Container Setup
 
@@ -25,6 +25,26 @@ export GIT_USER_EMAIL="your@email.com"
 ```
 
 ## Training Details for ARC-AGI-2
+
+### base-in ctd pretraining
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-base-in-200k \
+  all_config.yaml losses.py step_27520 trm.py \
+  --local-dir pretrained
+```
+
+```bash
+run_name="ctdtrain_base_25k"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-1000 \
+  --subsets training2 evaluation2 concept \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > ctdtrain_base_25k.log &
+```
 
 ### Slim
 ```bash
