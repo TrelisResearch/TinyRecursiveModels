@@ -35,7 +35,14 @@ hf download Trelis/TRM-ARC-AGI-II \
 ```
 
 ```bash
-run_name="ctdpretrain_original"
+uv pip install hf_transfer
+hf download Trelis/TRM-ctd-pt-20ke \
+  step_72477 \
+  --local-dir pretrained
+```
+
+```bash
+run_name="ctdpretrain_120k_ep"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-1000 \
@@ -43,8 +50,10 @@ python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_723914 \
-  +run_name="${run_name}" > ctdpretrain_original.log &
+  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_72477 \
+  freeze_weights=True \
+  freeze_weights_epochs=10000 \
+  +run_name="${run_name}" > ctdpretrain_120k_ep.log &
 ```
 
 
