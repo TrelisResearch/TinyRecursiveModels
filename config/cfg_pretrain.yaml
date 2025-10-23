@@ -10,7 +10,7 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc2ethard-aug-1000']
+data_paths: ['data/arc2concept-aug-1000']
 data_paths_test: []
 
 load_checkpoint: null
