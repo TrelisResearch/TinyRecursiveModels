@@ -81,9 +81,23 @@ class TinyRecursiveReasoningModel_ACTV1Block(nn.Module):
 
         self.config = config
         if self.config.mlp_t:
-            self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size) if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len
+            if self.config.puzzle_emb_len == 0:
+                puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)
+            else:
+                puzzle_emb_len = self.config.puzzle_emb_len
+
+            aug_token_len = 1 if (self.config.aug_color_pair_emb_dim > 0 or self.config.aug_dihedral_emb_dim > 0) else 0
+            if aug_token_len:
+                if self.config.hidden_size % 2 != 0:
+                    raise ValueError("hidden_size must be even when the augmentation token is enabled.")
+                half_dim = self.config.hidden_size // 2
+                if not (self.config.aug_color_pair_emb_dim == half_dim and self.config.aug_dihedral_emb_dim == half_dim):
+                    raise ValueError(
+                        f"When augmentation embeddings are enabled, aug_color_pair_emb_dim and aug_dihedral_emb_dim must both equal half the hidden size ({half_dim})."
+                    )
+
             self.mlp_t = SwiGLU(
-                hidden_size=self.config.seq_len + self.puzzle_emb_len, # L
+                hidden_size=self.config.seq_len + puzzle_emb_len + aug_token_len, # L
                 expansion=config.expansion,
             )
         else:
@@ -143,36 +157,31 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.lm_head      = CastedLinear(self.config.hidden_size, self.config.vocab_size, bias=False)
         self.q_head       = CastedLinear(self.config.hidden_size, 2, bias=True)
 
-        self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)  if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len  # ceil div
-        self.puzzle_feature_dim = 0
-        self.puzzle_emb_adapter: Optional[CastedLinear] = None
+        if self.config.puzzle_emb_len == 0:
+            self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)
+        else:
+            self.puzzle_emb_len = self.config.puzzle_emb_len
 
         if self.config.puzzle_emb_ndim > 0:
             # Zero init puzzle embeddings
-            self.puzzle_emb = CastedSparseEmbedding(
-                self.config.num_puzzle_identifiers,
-                self.config.puzzle_emb_ndim,
-                batch_size=self.config.batch_size,
-                init_std=0,
-                cast_to=self.forward_dtype
-            )
-            self.puzzle_feature_dim += self.config.puzzle_emb_ndim
+            self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
+                                                    batch_size=self.config.batch_size, init_std=0, cast_to=self.forward_dtype)
         else:
             self.puzzle_emb = None
 
-        if self.config.aug_dihedral_emb_dim > 0:
-            dihedral_init_std = 1.0 / math.sqrt(max(self.config.aug_dihedral_emb_dim, 1))
-            self.aug_dihedral_emb = CastedEmbedding(
-                self.config.num_dihedral_ops,
-                self.config.aug_dihedral_emb_dim,
-                init_std=dihedral_init_std,
-                cast_to=self.forward_dtype
-            )
-            self.puzzle_feature_dim += self.config.aug_dihedral_emb_dim
-        else:
-            self.aug_dihedral_emb = None
+        self.aug_token_enabled = False
+        self.aug_color_pair_emb: Optional[CastedEmbedding] = None
+        self.aug_dihedral_emb: Optional[CastedEmbedding] = None
 
-        if self.config.aug_color_pair_emb_dim > 0:
+        if self.config.aug_color_pair_emb_dim > 0 or self.config.aug_dihedral_emb_dim > 0:
+            if self.config.hidden_size % 2 != 0:
+                raise ValueError("hidden_size must be even to split augmentation token between color and dihedral features.")
+            half_dim = self.config.hidden_size // 2
+            if not (self.config.aug_color_pair_emb_dim == half_dim and self.config.aug_dihedral_emb_dim == half_dim):
+                raise ValueError(
+                    f"When augmentation embeddings are enabled, aug_color_pair_emb_dim and aug_dihedral_emb_dim must both equal half the hidden size ({half_dim})."
+                )
+
             color_init_std = 1.0 / math.sqrt(max(self.config.aug_color_pair_emb_dim, 1))
             self.aug_color_pair_emb = CastedEmbedding(
                 self.config.num_colors * self.config.num_colors,
@@ -180,21 +189,26 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
                 init_std=color_init_std,
                 cast_to=self.forward_dtype
             )
-            self.puzzle_feature_dim += self.config.aug_color_pair_emb_dim
-        else:
-            self.aug_color_pair_emb = None
 
-        target_dim = self.puzzle_emb_len * self.config.hidden_size
-        if self.puzzle_feature_dim > 0 and self.puzzle_feature_dim != target_dim:
-            self.puzzle_emb_adapter = CastedLinear(self.puzzle_feature_dim, target_dim, bias=False)
+            dihedral_init_std = 1.0 / math.sqrt(max(self.config.aug_dihedral_emb_dim, 1))
+            self.aug_dihedral_emb = CastedEmbedding(
+                self.config.num_dihedral_ops,
+                self.config.aug_dihedral_emb_dim,
+                init_std=dihedral_init_std,
+                cast_to=self.forward_dtype
+            )
+
+            self.aug_token_enabled = True
+
+        self.prefix_len = self.puzzle_emb_len + (1 if self.aug_token_enabled else 0)
 
         # LM Blocks
         if self.config.pos_encodings == "rope":
             self.rotary_emb = RotaryEmbedding(dim=self.config.hidden_size // self.config.num_heads,
-                                              max_position_embeddings=self.config.seq_len + self.puzzle_emb_len,
+                                              max_position_embeddings=self.config.seq_len + self.prefix_len,
                                               base=self.config.rope_theta)
         elif self.config.pos_encodings == "learned":
-            self.embed_pos = CastedEmbedding(self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, init_std=embed_init_std, cast_to=self.forward_dtype)
+            self.embed_pos = CastedEmbedding(self.config.seq_len + self.prefix_len, self.config.hidden_size, init_std=embed_init_std, cast_to=self.forward_dtype)
         else:
             pass
 
@@ -215,43 +229,50 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         # Token embedding
         embedding = self.embed_tokens(input.to(torch.int32))
 
+        prefix_tokens: List[torch.Tensor] = []
+        batch_size = embedding.shape[0]
+
         # Puzzle embeddings
-        if self.puzzle_feature_dim > 0:
-            batch_size = puzzle_identifiers.shape[0]
+        if self.config.puzzle_emb_ndim > 0 and self.puzzle_emb is not None:
+            puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
+
+            pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
+            if pad_count > 0:
+                puzzle_embedding = F.pad(puzzle_embedding, (0, pad_count))
+
+            prefix_tokens.append(puzzle_embedding.view(batch_size, self.puzzle_emb_len, self.config.hidden_size))
+
+        # Augmentation token (color + dihedral)
+        if self.aug_token_enabled:
             device = embedding.device
-            feature_parts: List[torch.Tensor] = []
+            dtype = embedding.dtype
+            half_dim = self.config.hidden_size // 2
 
-            if self.config.puzzle_emb_ndim > 0 and self.puzzle_emb is not None:
-                feature_parts.append(self.puzzle_emb(puzzle_identifiers))
+            if self.aug_color_pair_emb is not None and "aug_color_perm" in batch:
+                color_perm = batch["aug_color_perm"].to(torch.long)
+                num_colors = color_perm.shape[-1]
+                src = torch.arange(num_colors, device=color_perm.device, dtype=torch.long).unsqueeze(0).expand_as(color_perm)
+                pair_idx = src * num_colors + color_perm
+                pair_embeddings = self.aug_color_pair_emb(pair_idx)
+                change_mask = (color_perm != src)
+                masked_embeddings = pair_embeddings * change_mask.unsqueeze(-1).to(pair_embeddings.dtype)
+                counts = change_mask.sum(dim=-1, keepdim=True).clamp(min=1).to(pair_embeddings.dtype)
+                color_feature = masked_embeddings.sum(dim=1) / counts
+            else:
+                color_feature = torch.zeros(batch_size, half_dim, dtype=dtype, device=device)
 
-            if self.config.aug_dihedral_emb_dim > 0:
-                if "aug_dihedral" in batch:
-                    dihedral_idx = batch["aug_dihedral"].to(torch.long)
-                    feature_parts.append(self.aug_dihedral_emb(dihedral_idx))
-                else:
-                    feature_parts.append(torch.zeros(batch_size, self.config.aug_dihedral_emb_dim, dtype=self.forward_dtype, device=device))
+            if self.aug_dihedral_emb is not None and "aug_dihedral" in batch:
+                dihedral_idx = batch["aug_dihedral"].to(torch.long)
+                dihedral_feature = self.aug_dihedral_emb(dihedral_idx)
+            else:
+                dihedral_feature = torch.zeros(batch_size, half_dim, dtype=dtype, device=device)
 
-            if self.config.aug_color_pair_emb_dim > 0:
-                if "aug_color_perm" in batch:
-                    color_perm = batch["aug_color_perm"].to(torch.long)
-                    num_colors = color_perm.shape[-1]
-                    src = torch.arange(num_colors, device=color_perm.device, dtype=torch.long).unsqueeze(0).expand_as(color_perm)
-                    pair_idx = src * num_colors + color_perm
-                    pair_embeddings = self.aug_color_pair_emb(pair_idx)
-                    change_mask = (color_perm != src)
-                    masked_embeddings = pair_embeddings * change_mask.unsqueeze(-1).to(pair_embeddings.dtype)
-                    counts = change_mask.sum(dim=-1, keepdim=True).clamp(min=1).to(pair_embeddings.dtype)
-                    color_feature = masked_embeddings.sum(dim=1) / counts
-                    feature_parts.append(color_feature)
-                else:
-                    feature_parts.append(torch.zeros(batch_size, self.config.aug_color_pair_emb_dim, dtype=self.forward_dtype, device=device))
+            aug_token = torch.cat((color_feature, dihedral_feature), dim=-1)
+            prefix_tokens.append(aug_token.unsqueeze(1))
 
-            if feature_parts:
-                puzzle_feature = torch.cat(feature_parts, dim=-1)
-                if self.puzzle_emb_adapter is not None:
-                    puzzle_feature = self.puzzle_emb_adapter(puzzle_feature)
-                puzzle_feature = puzzle_feature.view(-1, self.puzzle_emb_len, self.config.hidden_size)
-                embedding = torch.cat((puzzle_feature, embedding), dim=-2)
+        if prefix_tokens:
+            prefix = torch.cat(prefix_tokens, dim=1)
+            embedding = torch.cat((prefix, embedding), dim=1)
 
         # Position embeddings
         if self.config.pos_encodings == "learned":
@@ -263,8 +284,8 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
     def empty_carry(self, batch_size: int):
         return TinyRecursiveReasoningModel_ACTV1InnerCarry(
-            z_H=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
-            z_L=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
+            z_H=torch.empty(batch_size, self.config.seq_len + self.prefix_len, self.config.hidden_size, dtype=self.forward_dtype),
+            z_L=torch.empty(batch_size, self.config.seq_len + self.prefix_len, self.config.hidden_size, dtype=self.forward_dtype),
         )
         
     def reset_carry(self, reset_flag: torch.Tensor, carry: TinyRecursiveReasoningModel_ACTV1InnerCarry):
@@ -297,7 +318,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         # LM Outputs
         new_carry = TinyRecursiveReasoningModel_ACTV1InnerCarry(z_H=z_H.detach(), z_L=z_L.detach())  # New carry no grad
-        output = self.lm_head(z_H)[:, self.puzzle_emb_len:]
+        output = self.lm_head(z_H)[:, self.prefix_len:]
         q_logits = self.q_head(z_H[:, 0]).to(torch.float32) # Q-head; uses the first puzzle_emb position
         return new_carry, output, (q_logits[..., 0], q_logits[..., 1])
 
