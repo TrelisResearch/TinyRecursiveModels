@@ -28,6 +28,14 @@ export GIT_USER_EMAIL="your@email.com"
 
 ### base pretraining
 ```bash
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-1000 \
+  --subsets training2 evaluation2 concept \
+  --test-set-name evaluation2 && \
+```
+
+```bash
 run_name="pretrain_base-in_100k_768bsz"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
@@ -36,15 +44,10 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 ```bash
 run_name="pretrain_base-in_100k_1536bsz"
-uv run python -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2concept-aug-1000 \
-  --subsets training2 evaluation2 concept \
-  --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  --global_batch_size=1536 \
-  --lr=2e-4 \
+  global_batch_size=1536 \
+  lr=2e-4 \
   +run_name="${run_name}" > pretrain_base-in_100k_1536bsz.log &
 ```
 
