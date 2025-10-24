@@ -28,15 +28,24 @@ export GIT_USER_EMAIL="your@email.com"
 
 ### base pretraining
 ```bash
-run_name="ctdtrain_base_25k"
-python -m dataset.build_arc_dataset \
+run_name="pretrain_base-in_100k_768bsz"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  +run_name="${run_name}" > pretrain_base-in_100k_768bsz.log &
+```
+
+```bash
+run_name="pretrain_base-in_100k_1536bsz"
+uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-1000 \
   --subsets training2 evaluation2 concept \
   --test-set-name evaluation2 && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  +run_name="${run_name}" > pretrain_base_25k.log &
+  --global_batch_size=1536 \
+  --lr=2e-4 \
+  +run_name="${run_name}" > pretrain_base-in_100k_1536bsz.log &
 ```
 
 
@@ -50,7 +59,7 @@ hf download Trelis/TRM-base-in-200k \
 
 ```bash
 run_name="ctdtrain_base_25k"
-python -m dataset.build_arc_dataset \
+uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-1000 \
   --subsets training2 evaluation2 concept \
