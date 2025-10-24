@@ -115,7 +115,7 @@ uv run python -m dataset.build_arc_dataset \
 ```
 - **Full tuning - mean init**:
 ```bash
-run_name="posttrain_aa1_aa2e"
+run_name="posttrain_aa1_aa2e_feq"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
   data_paths="['data/arc-eval2-aug-1000']" \
@@ -124,35 +124,36 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   puzzle_emb_reinit_strategy="mean" \
   freeze_weights=True \
   freeze_weights_epochs=3125 \
-  +run_name=${run_name} > posttrain_aa1_aa2e.log &
+  +run_name=${run_name} > posttrain_aa1_aa2e_feq.log &
 ```
 
 ```bash
-run_name="posttrain_aa1_aa2e_32bsz"
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain \
-  data_paths="['data/arc-eval2-aug-1000']" \
-  data_paths_test="['data/arc-eval2-aug-4000']" \
-  load_checkpoint="pretrained/step_155718" \
-  puzzle_emb_reinit_strategy="mean" \
-  freeze_weights=True \
-  freeze_weights_epochs=3125 \
-  global_batch_size=32 \
-  lr=4.2e-6 \
-  +run_name=${run_name} > posttrain_aa1_aa2e_32bsz.log &
-```
-
-```bash
-run_name="posttrain_aa1_aa2e_32bsz_4ka"
+run_name="posttrain_aa1_aa2e_96bsz"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   puzzle_emb_reinit_strategy="mean" \
-  global_batch_size=32 \
-  lr=4.2e-6 \
-  +run_name=${run_name} > posttrain_aa1_aa2e_32bsz_4ka.log &
+  freeze_weights=True \
+  freeze_weights_epochs=3125 \
+  global_batch_size=96 \
+  eval_global_batch_size=384 \
+  lr=0.125e-4 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_96bsz.log &
+```
+
+```bash
+run_name="posttrain_aa1_aa2e_384bsz_4ka"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  puzzle_emb_reinit_strategy="mean" \
+  freeze_weights=True \
+  freeze_weights_epochs=3125 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_384bsz_4ka.log &
 ```
 - **Full tuning - normal init**:
 ```bash
