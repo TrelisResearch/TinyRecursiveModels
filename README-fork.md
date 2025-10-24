@@ -108,7 +108,7 @@ hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
   --local-dir pretrained && \
 uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc-eval2-aug-4000 \
+  --output-dir data/arc-eval2-aug-1000 \
   --subsets evaluation2 \
   --test-set-name evaluation2 \
   --num-aug 4000
@@ -146,8 +146,8 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 run_name="posttrain_aa1_aa2e_32bsz_4ka"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
-  data_paths="['data/arc-eval2-aug-4000']" \
-  data_paths_test="['data/arc-eval2-aug-4000']" \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   puzzle_emb_reinit_strategy="mean" \
   global_batch_size=32 \

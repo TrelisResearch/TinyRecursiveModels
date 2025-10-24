@@ -61,6 +61,7 @@ class PretrainConfig(pydantic.BaseModel):
 
     # Hyperparams
     global_batch_size: int
+    eval_global_batch_size: Optional[int] = None
     epochs: int
 
     lr: float
@@ -820,9 +821,26 @@ def launch(hydra_config: DictConfig):
 
     assert config.epochs % train_epochs_per_iter == 0, "Eval interval must be a divisor of total epochs."
 
-    train_loader, train_metadata = create_dataloader(config, "train", test_set_mode=False, epochs_per_iter=train_epochs_per_iter, global_batch_size=config.global_batch_size, rank=RANK, world_size=WORLD_SIZE)
+    train_loader, train_metadata = create_dataloader(
+        config,
+        "train",
+        test_set_mode=False,
+        epochs_per_iter=train_epochs_per_iter,
+        global_batch_size=config.global_batch_size,
+        rank=RANK,
+        world_size=WORLD_SIZE,
+    )
     try:
-        eval_loader,  eval_metadata  = create_dataloader(config, "test", test_set_mode=True, epochs_per_iter=1, global_batch_size=config.global_batch_size, rank=RANK, world_size=WORLD_SIZE, max_eval_augmentations=config.eval_max_augmentations)
+        eval_loader, eval_metadata = create_dataloader(
+            config,
+            "test",
+            test_set_mode=True,
+            epochs_per_iter=1,
+            global_batch_size=config.eval_global_batch_size or config.global_batch_size,
+            rank=RANK,
+            world_size=WORLD_SIZE,
+            max_eval_augmentations=config.eval_max_augmentations,
+        )
     except:
         print("NO EVAL DATA FOUND")
         eval_loader = eval_metadata = None
