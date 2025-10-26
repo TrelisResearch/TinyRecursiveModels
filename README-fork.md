@@ -44,12 +44,12 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
 #### 30 augs
 ```bash
 run_name="pretrain_30augs"
-python -m dataset.build_arc_dataset \
+uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-1000 \
   --subsets concept training2 evaluation2 \
-  --test-set-name evaluation2 && \
-  --num-aug 30 \
+  --test-set-name evaluation2 \
+  --num-aug 30 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   eval_interval=2500 \
@@ -59,7 +59,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
 #### Half cycles and ACT steps
 ```bash
 run_name="pretrain_half_cycles"
-python -m dataset.build_arc_dataset \
+uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2concept-aug-1000 \
   --subsets concept training2 evaluation2 \
