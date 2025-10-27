@@ -45,12 +45,12 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```bash
 uv pip install hf_transfer
 hf download Trelis/TRM-pretrain-slim-synth \
-  step_56685 \
+  step_113369 \
   --local-dir pretrained
 ```
 
 ```bash
-run_name="posttrain_slim_synth"
+run_name="posttrain_slim_synth-step_113369"
 uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-posttrain \
@@ -58,10 +58,10 @@ uv run python -m dataset.build_arc_dataset \
   --test-set-name evaluation2-80 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_posttrain_slim \
-  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_56685 \
+  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_113369 \
   data_paths=['data/arc2-posttrain'] \
   arch=trm-slim \
-  +run_name="${run_name}" > posttrain_slim_synth.log &
+  +run_name="${run_name}" > posttrain_slim_synth-step_113369.log &
 ```
 
 ### Production Pipeline
