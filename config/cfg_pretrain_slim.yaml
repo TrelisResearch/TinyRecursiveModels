@@ -1,0 +1,50 @@
+# ARC training config
+
+defaults:
+  - arch: trm
+  - _self_
+
+hydra:
+  output_subdir: null
+
+entity: "trelis"
+
+# Data path
+data_paths: null
+data_paths_test: []
+
+load_checkpoint: null
+checkpoint_path: null
+
+evaluators:
+  - name: arc@ARC
+
+# Hyperparams - Training
+global_batch_size: 1536
+
+epochs: 200000
+eval_interval: 5000
+checkpoint_every_eval: True
+checkpoint_every_n_steps: null
+eval_max_augmentations: null
+
+lr: 2.8e-4
+lr_min_ratio: 1.0
+lr_warmup_steps: 2000
+
+# Standard hyperparameter settings for LM, as used in Llama
+beta1: 0.9
+beta2: 0.95
+weight_decay: 0.1
+puzzle_emb_weight_decay: 0.1
+
+# Hyperparams - Puzzle embeddings training
+puzzle_emb_lr: 2.8e-2
+
+seed: 0
+min_eval_interval: 0 # when to start the eval
+
+ema: True # use Exponential-Moving-Average
+ema_rate: 0.999 # EMA-rate
+freeze_weights: False # If True, freeze weights and only learn the embeddings
+freeze_weights_epochs: null

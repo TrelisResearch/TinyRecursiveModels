@@ -25,6 +25,24 @@ export GIT_USER_EMAIL="your@email.com"
 ```
 
 ## Training Details
+### Synthetic Pipeline
+#### Pre-training Synth
+```bash
+run_name="pretrain_slim"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-pretrain-synth \
+  --subsets concept tama evaluation2-40 \
+  --test-set-name evaluation2-40 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=data/arc2-pretrain-synth \
+  arch=trm-slim \
+  +run_name="${run_name}" > pretrain_slim.log &
+```
+
+#### Post-training Synth
+...
 
 ### From Scratch Ablations
 #### 2x d_model
