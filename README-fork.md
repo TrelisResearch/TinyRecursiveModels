@@ -41,6 +41,24 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_slim_synth.log &
 ```
 
+### ctd pre-training synth
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-pretrain-slim-synth \
+  step_133377 \
+  --local-dir pretrained
+```
+
+```bash
+run_name="pretrain_slim_synth_2"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_slim \
+  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_133377 \
+  data_paths=['data/arc2-pretrain'] \
+  arch=trm-slim-2 \
+  +run_name="${run_name}" > pretrain_slim_synth_2.log &
+```
+
 #### Post-training Synth
 ```bash
 uv pip install hf_transfer
@@ -51,7 +69,7 @@ hf download Trelis/TRM-pretrain-slim-synth \
 
 ```bash
 run_name="posttrain_slim_synth-step_113369"
-uv run python -m dataset.build_arc_dataset \
+uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-posttrain \
   --subsets concept evaluation2-80 \
