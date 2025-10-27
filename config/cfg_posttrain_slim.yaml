@@ -23,16 +23,16 @@ evaluators:
 global_batch_size: 768
 eval_global_batch_size: null
 
-epochs: 25000
-eval_interval: 6250
+epochs: 50000
+eval_interval: 12500
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
-eval_max_augmentations: 512
-puzzle_emb_reinit_strategy: "normal"
+eval_max_augmentations: null
+puzzle_emb_reinit_strategy: "mean"
 
 lr: 1.4e-4
 lr_min_ratio: 1.0
-lr_warmup_steps: 2000
+lr_warmup_steps: 4000
 
 # Standard hyperparameter settings for LM, as used in Llama
 beta1: 0.9
@@ -48,5 +48,5 @@ min_eval_interval: 0 # when to start the eval
 
 ema: True # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
-freeze_weights: False # If True, freeze weights and only learn the embeddings
-freeze_weights_epochs: null
+freeze_weights: True # If True, freeze weights and only learn the embeddings
+freeze_weights_epochs: 2000
