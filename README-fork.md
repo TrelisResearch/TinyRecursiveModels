@@ -56,6 +56,8 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_133377 \
   data_paths=['data/arc2-pretrain'] \
   arch=trm-slim-2 \
+  freeze_weights=True \
+  freeze_weights_epochs=6500 \
   +run_name="${run_name}" > pretrain_slim_synth_2.log &
 ```
 
