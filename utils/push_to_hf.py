@@ -26,12 +26,7 @@ from pathlib import Path
 from typing import Optional
 
 from huggingface_hub import HfApi, upload_folder
-from huggingface_hub.utils import HfHubHTTPError
-
-try:
-    from huggingface_hub import HfFolder  # type: ignore
-except ImportError:
-    from huggingface_hub.utils import HfFolder  # type: ignore
+from huggingface_hub.utils import HfHubHTTPError, get_token as hf_get_token
 
 
 def resolve_token(cli_token: Optional[str]) -> Optional[str]:
@@ -48,7 +43,7 @@ def resolve_token(cli_token: Optional[str]) -> Optional[str]:
     env_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
     if env_token:
         return env_token.strip()
-    cached = HfFolder.get_token()
+    cached = hf_get_token()
     return cached.strip() if cached else None
 
 
