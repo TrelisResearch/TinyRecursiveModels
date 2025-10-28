@@ -69,6 +69,7 @@ class Model_ACTV2Config(BaseModel):
     act_enabled: bool = True  # If False, always run halt_max_steps (no early stopping during training)
     act_inference: bool = False  # If True, use adaptive computation during inference
     puzzle_emb_dropout: float = 0.0
+    grid_token_dropout: float = 0.0
 
     forward_dtype: str = "bfloat16"
 
@@ -185,6 +186,8 @@ class Model_ACTV2_Inner(nn.Module):
     def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor):
         # Token embedding
         embedding = self.embed_tokens(input.to(torch.int32))
+        if self.training and self.config.grid_token_dropout > 0:
+            embedding = F.dropout(embedding, p=self.config.grid_token_dropout, training=True)
 
         # Puzzle embeddings
         if self.config.puzzle_emb_ndim > 0:
