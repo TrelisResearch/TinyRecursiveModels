@@ -25,6 +25,28 @@ export GIT_USER_EMAIL="your@email.com"
 ```
 
 ## Training Details
+### ctd pre-training synth
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained
+```
+
+```bash
+run_name="ctd_train_AAII_50k"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-1000 \
+  --subsets concept tama training2 evaluation2 \
+  --test-set-name evaluation2-40 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_ctd_pretrain \
+  load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_723914 \
+  data_paths=['data/arc2-pretrain'] \
+  +run_name="${run_name}" > ctd_train_AAII_50k.log &
+```
+
 ### Slim Pre-training
 ```bash
 run_name="pretrain_slim"
@@ -262,7 +284,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```
 **aa2 slim model from oct 27th**
 ```bash
-run_name="postrain_aa2_slim_prod_37344"
+run_name="postrain_aa2_slim_prod_43568"
 uv pip install hf_transfer
 hf download Trelis/TRM-slim-prod \
   step_43568 \
@@ -273,22 +295,22 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test="['data/tama']" \
   load_checkpoint="pretrained/step_43568" \
   arch.num_heads=4 \
-  +run_name=${run_name} > postrain_aa2_slim_prod_37344.log &
+  +run_name=${run_name} > postrain_aa2_slim_prod_43568.log &
 ```
 
 **aa2 slim model from oct 28th**
 ```bash
-run_name="postrain_aa2_slim_the_"
+run_name="postrain_aa2_slim_the2_44072"
 uv pip install hf_transfer
-hf download Trelis/TRM-slim-the \
-  step_43568 \
+hf download Trelis/TRM-slim-the2 \
+  step_44072 \
   --local-dir pretrained && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain_slim \
   data_paths="['data/tama']" \
   data_paths_test="['data/tama']" \
-  load_checkpoint="pretrained/step_43568" \
-  +run_name=${run_name} > postrain_aa2_slim_prod_37344.log &
+  load_checkpoint="pretrained/step_44072" \
+  +run_name=${run_name} > postrain_aa2_slim_prod_44072.log &
 ```
 
 
