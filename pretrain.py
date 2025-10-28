@@ -58,6 +58,7 @@ class PretrainConfig(pydantic.BaseModel):
     data_paths_test: List[str] = []
     # Evaluators
     evaluators: List[EvaluatorConfig] = []
+    halt_max_steps_eval: Optional[int] = None
 
     # Hyperparams
     global_batch_size: int
@@ -148,6 +149,8 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         num_puzzle_identifiers=train_metadata.num_puzzle_identifiers,
         causal=False  # Non-autoregressive
     )
+    if config.halt_max_steps_eval is not None:
+        model_cfg.setdefault("halt_max_steps_eval", config.halt_max_steps_eval)
 
     # Instantiate model with loss head
     model_cls = load_model_class(config.arch.name)

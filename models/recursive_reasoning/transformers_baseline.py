@@ -65,6 +65,7 @@ class Model_ACTV2Config(BaseModel):
     # Halting Q-learning config
     halt_max_steps: int
     halt_exploration_prob: float
+    halt_max_steps_eval: Optional[int] = None
     act_enabled: bool = True  # If False, always run halt_max_steps (no early stopping during training)
     act_inference: bool = False  # If True, use adaptive computation during inference
 
@@ -294,7 +295,8 @@ class Model_ACTV2(nn.Module):
         with torch.no_grad():
             # Step
             new_steps = new_steps + 1
-            is_last_step = new_steps >= self.config.halt_max_steps
+            halt_limit = self.config.halt_max_steps if self.training or (self.config.halt_max_steps_eval is None) else self.config.halt_max_steps_eval
+            is_last_step = new_steps >= halt_limit
 
             halted = is_last_step
 

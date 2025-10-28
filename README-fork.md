@@ -222,19 +222,56 @@ uv run python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 \
   --num-aug 1000
 ```
-
+- **Full tuning - 4x halt max steps**:
 ```bash
-uv pip install hf_transfer
-hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
-  step_155718 \
-  --local-dir pretrained && \
-uv run python -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc-eval2-aug-1000 \
-  --subsets evaluation2 \
-  --test-set-name evaluation2 \
-  --num-aug 4000
+run_name="posttrain_aa1_aa2e_4x_halt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  eval_max_augmentations=64 \
+  halt_max_steps_eval=64 \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_aa2e_4x_halt.log &
 ```
+
+- **Full tuning - 4x halt max steps**:
+```bash
+run_name="posttrain_aa1_aa2e_4x_halt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_aa2e_4x_halt.log &
+```
+
+- **2x LR**:
+```bash
+run_name="posttrain_aa1_aa2e_4x_halt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  lr=1.4e-4 \
+  puzzle_emb_lr=1.4e-2 \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_aa2e_4x_halt.log &
+```
+
+- **2x WD**:
+```bash
+run_name="posttrain_aa1_aa2e_4x_halt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  weight_decay=0.2 \
+  puzzle_emb_weight_decay=0.2 \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_aa2e_4x_halt.log &
+```
+
 - **Full tuning - mean init**:
 ```bash
 run_name="posttrain_aa1_aa2e_feq"

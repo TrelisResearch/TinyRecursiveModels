@@ -28,7 +28,8 @@ eval_interval: 3125
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 eval_max_augmentations: 256
-puzzle_emb_reinit_strategy: "normal"
+halt_max_steps_eval: null
+puzzle_emb_reinit_strategy: "mean"
 
 lr: 0.7e-4
 lr_min_ratio: 1.0
@@ -48,5 +49,5 @@ min_eval_interval: 0 # when to start the eval
 
 ema: True # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
-freeze_weights: False # If True, freeze weights and only learn the embeddings
-freeze_weights_epochs: null
+freeze_weights: True # If True, freeze weights and only learn the embeddings
+freeze_weights_epochs: 3125
