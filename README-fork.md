@@ -248,6 +248,31 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > posttrain_aa1_aa2e_puzz_drp.log &
 ```
 
+- **Input Grid Dropout**:
+```bash
+run_name="posttrain_aa1_aa2e_grid_drp"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.grid_token_dropout=0.05 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_grid_drp.log &
+```
+- **Grid Noise**:
+```bash
+run_name="posttrain_aa1_aa2e_grid_noise"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.grid_noise_prob=0.05 \
+  arch.grid_noise_fraction=0.02 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_grid_noise.log &
+```
+
+
 - **Full tuning - 4x halt max steps**:
 ```bash
 run_name="posttrain_aa1_aa2e_4x_halt"

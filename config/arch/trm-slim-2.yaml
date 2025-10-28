@@ -26,3 +26,6 @@ forward_dtype: bfloat16
 mlp_t: False # use mlp on L instead of transformer
 puzzle_emb_len: 1 # if non-zero, its specified to this value
 no_ACT_continue: True # No continue ACT loss, only use the sigmoid of the halt which makes much more sense
+
+grid_noise_prob: 0.0
+grid_noise_fraction: 0.0

@@ -24,3 +24,6 @@ pos_encodings: rope
 forward_dtype: bfloat16
 
 mlp_t: False # use mlp on L instead of transformer
+
+grid_noise_prob: 0.0
+grid_noise_fraction: 0.0

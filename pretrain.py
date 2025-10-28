@@ -104,6 +104,8 @@ class PretrainConfig(pydantic.BaseModel):
     dataloader_prefetch_factor: int = 8
     dataloader_pin_memory: bool = True
     dataloader_persistent_workers: bool = True
+    grid_noise_prob: Optional[float] = None
+    grid_noise_fraction: Optional[float] = None
 
 @dataclass
 class TrainState:
@@ -121,6 +123,11 @@ class TrainState:
 
 
 def create_dataloader(config: PretrainConfig, split: str, rank: int, world_size: int, max_eval_augmentations: Optional[int] = None, **kwargs):
+    noise_prob = config.grid_noise_prob if config.grid_noise_prob is not None else getattr(config.arch, "grid_noise_prob", 0.0)
+    noise_fraction = config.grid_noise_fraction if config.grid_noise_fraction is not None else getattr(config.arch, "grid_noise_fraction", 0.0)
+
+    kwargs.setdefault("grid_noise_prob", noise_prob)
+    kwargs.setdefault("grid_noise_fraction", noise_fraction)
     dataset = PuzzleDataset(PuzzleDatasetConfig(
         seed=config.seed,
         dataset_paths=config.data_paths_test if len(config.data_paths_test)>0 and split=="test" else config.data_paths,

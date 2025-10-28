@@ -18,3 +18,6 @@ expansion: 4
 puzzle_emb_ndim: ${.hidden_size}
 
 pos_encodings: rope
+
+grid_noise_prob: 0.0
+grid_noise_fraction: 0.0

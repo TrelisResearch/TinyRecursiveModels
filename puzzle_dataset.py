@@ -1,4 +1,5 @@
 import os
+import math
 import json
 from typing import Tuple, List, Dict, Optional
 import numpy as np
@@ -49,6 +50,8 @@ class PuzzleDatasetConfig(pydantic.BaseModel):
     rank: int
     num_replicas: int
     max_eval_augmentations: Optional[int] = None
+    grid_noise_prob: float = 0.0
+    grid_noise_fraction: float = 0.0
 
 class PuzzleDataset(IterableDataset):
     def __init__(self, config: PuzzleDatasetConfig, split: str = "train"):
@@ -228,6 +231,58 @@ class PuzzleDataset(IterableDataset):
 
         # To tensor
         return {k: torch.from_numpy(v) for k, v in batch.items()}
+
+    def _apply_grid_noise(self, batch: Dict[str, torch.Tensor]) -> None:
+        if self.split != "train":
+            return
+        if self.config.grid_noise_prob <= 0 or self.config.grid_noise_fraction <= 0:
+            return
+
+        inputs = batch.get("inputs")
+        if inputs is None or inputs.ndim != 2:
+            return
+
+        device = inputs.device
+        apply_mask = torch.rand(inputs.size(0), device=device) < self.config.grid_noise_prob
+        if not torch.any(apply_mask):
+            return
+
+        seq_len = inputs.size(1)
+        if math.isqrt(seq_len) ** 2 != seq_len:
+            return
+
+        color_candidates = torch.arange(2, 12, device=device, dtype=inputs.dtype)
+
+        for idx in torch.nonzero(apply_mask, as_tuple=False).flatten():
+            grid = inputs[idx]
+            valid_mask = grid >= 2
+            if not torch.any(valid_mask):
+                continue
+
+            tokens = grid[valid_mask]
+            values, counts = torch.unique(tokens, return_counts=True)
+            if values.numel() == 0:
+                continue
+
+            major_token = values[counts.argmax()]
+            major_positions = torch.nonzero(grid == major_token, as_tuple=False).flatten()
+            if major_positions.numel() == 0:
+                continue
+
+            num_to_flip = max(1, int(self.config.grid_noise_fraction * major_positions.numel()))
+            if num_to_flip >= major_positions.numel():
+                num_to_flip = major_positions.numel()
+
+            flip_indices = torch.randperm(major_positions.numel(), device=device)[:num_to_flip]
+            flip_positions = major_positions[flip_indices]
+
+            replacement_colors = color_candidates[color_candidates != major_token]
+            if replacement_colors.numel() == 0:
+                continue
+
+            rand_idx = torch.randint(0, replacement_colors.numel(), (flip_positions.numel(),), device=device)
+            new_values = replacement_colors[rand_idx].to(grid.dtype)
+            grid[flip_positions] = new_values
     
     def _iter_test(self):
         for set_i, (set_name, dataset) in enumerate(self._data.items()):  # type: ignore
@@ -257,6 +312,7 @@ class PuzzleDataset(IterableDataset):
                     "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices],
                     "task_identifiers": dataset["puzzle_group_ids"][puzzle_indices]
                 })
+                self._apply_grid_noise(batch)
 
                 yield set_name, batch, end_index - start_index
                 
@@ -299,6 +355,7 @@ class PuzzleDataset(IterableDataset):
                     "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices],
                     "task_identifiers": dataset["puzzle_group_ids"][batch_puzzle_indices]
                 })
+                self._apply_grid_noise(batch)
 
                 yield set_name, batch, global_effective_batch_size
                 
