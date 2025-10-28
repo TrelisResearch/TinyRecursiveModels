@@ -25,8 +25,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from huggingface_hub import HfApi, HfFolder, upload_folder
+from huggingface_hub import HfApi, upload_folder
 from huggingface_hub.utils import HfHubHTTPError
+
+try:
+    from huggingface_hub import HfFolder  # type: ignore
+except ImportError:
+    from huggingface_hub.utils import HfFolder  # type: ignore
 
 
 def resolve_token(cli_token: Optional[str]) -> Optional[str]:

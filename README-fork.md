@@ -260,7 +260,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint="pretrained/step_723914" \
   +run_name=${run_name} > postrain_aa2_drp.log &
 ```
-**aa2 slim model**
+**aa2 slim model from oct 27th**
 ```bash
 run_name="postrain_aa2_slim_prod_37344"
 uv pip install hf_transfer
@@ -273,6 +273,21 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test="['data/tama']" \
   load_checkpoint="pretrained/step_43568" \
   arch.num_heads=4 \
+  +run_name=${run_name} > postrain_aa2_slim_prod_37344.log &
+```
+
+**aa2 slim model from oct 28th**
+```bash
+run_name="postrain_aa2_slim_the_"
+uv pip install hf_transfer
+hf download Trelis/TRM-slim-the \
+  step_43568 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain_slim \
+  data_paths="['data/tama']" \
+  data_paths_test="['data/tama']" \
+  load_checkpoint="pretrained/step_43568" \
   +run_name=${run_name} > postrain_aa2_slim_prod_37344.log &
 ```
 
