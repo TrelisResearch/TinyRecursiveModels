@@ -27,7 +27,7 @@ export GIT_USER_EMAIL="your@email.com"
 ## Training Details
 ### Slim Pre-training
 ```bash
-run_name="pretrain_slim_8xcycles"
+run_name="pretrain_slim"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-pretrain \
@@ -37,7 +37,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   --config-name cfg_pretrain_slim \
   data_paths=['data/arc2-pretrain'] \
   arch=trm-slim \
-  +run_name="${run_name}" > pretrain_slim_8xcycles.log &
+  +run_name="${run_name}" > pretrain_slim.log &
 ```
 ### Synthetic Pipeline
 #### Pre-training Synth
@@ -236,6 +236,18 @@ uv run python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 \
   --num-aug 1000
 ```
+- **Puzz Dropout**:
+```bash
+run_name="posttrain_aa1_aa2e_puzz_drp"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_dropout=0.1 \
+  +run_name=${run_name} > posttrain_aa1_aa2e_puzz_drp.log &
+```
+
 - **Full tuning - 4x halt max steps**:
 ```bash
 run_name="posttrain_aa1_aa2e_4x_halt"
@@ -249,30 +261,30 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > posttrain_aa1_aa2e_4x_halt.log &
 ```
 
-- **2x LR**:
+- **4x LR**:
 ```bash
-run_name="posttrain_aa1_aa2e_2x_LR"
+run_name="posttrain_aa1_aa2e_4x_LR"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
-  lr=1.4e-4 \
-  puzzle_emb_lr=1.4e-2 \
+  lr=2.8e-4 \
+  puzzle_emb_lr=2.8e-2 \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  +run_name=${run_name} > posttrain_aa1_aa2e_2x_LR.log &
+  +run_name=${run_name} > posttrain_aa1_aa2e_4x_LR.log &
 ```
 
-- **2x WD**:
+- **0.1x WD**:
 ```bash
-run_name="posttrain_aa1_aa2e_2x_WD"
+run_name="posttrain_aa1_aa2e_0.1x_WD"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
-  weight_decay=0.2 \
-  puzzle_emb_weight_decay=0.2 \
+  weight_decay=0.01 \
+  puzzle_emb_weight_decay=0.01 \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  +run_name=${run_name} > posttrain_aa1_aa2e_2x_WD.log &
+  +run_name=${run_name} > posttrain_aa1_aa2e_0.1x_WD.log &
 ```
 
 - **Full tuning - mean init**:

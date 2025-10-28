@@ -57,6 +57,7 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     halt_max_steps_eval: Optional[int] = None
 
     forward_dtype: str = "bfloat16"
+    puzzle_emb_dropout: float = 0.0
 
     # Alexia: added
     mlp_t: bool = False # use mlp on L instead of transformer
@@ -165,6 +166,11 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         # Puzzle embeddings
         if self.config.puzzle_emb_ndim > 0:
             puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
+            if self.training and self.config.puzzle_emb_dropout > 0:
+                keep_prob = 1.0 - self.config.puzzle_emb_dropout
+                keep_mask = (torch.rand(puzzle_embedding.size(0), device=puzzle_embedding.device) >= self.config.puzzle_emb_dropout).to(puzzle_embedding.dtype)
+                puzzle_embedding = puzzle_embedding * keep_mask.unsqueeze(-1)
+                puzzle_embedding = puzzle_embedding / keep_prob
             
             pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
             if pad_count > 0:
