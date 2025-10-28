@@ -248,7 +248,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 **aa2 model**
 ```bash
-run_name="postrain_aa2"
+run_name="postrain_aa2_drp"
 uv pip install hf_transfer
 hf download Trelis/TRM-ARC-AGI-II \
   step_723914 \
@@ -258,7 +258,22 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/tama']" \
   data_paths_test="['data/tama']" \
   load_checkpoint="pretrained/step_723914" \
-  +run_name=${run_name} > postrain_aa2.log &
+  +run_name=${run_name} > postrain_aa2_drp.log &
+```
+
+```bash
+run_name="postrain_aa2_64halt"
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/tama']" \
+  data_paths_test="['data/tama']" \
+  load_checkpoint="pretrained/step_723914" \
+  arch.halt_max_steps_eval=64 \
+  +run_name=${run_name} > postrain_aa2_64halt.log &
 ```
 
 
