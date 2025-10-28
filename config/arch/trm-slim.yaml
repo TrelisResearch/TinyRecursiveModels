@@ -4,10 +4,10 @@ loss:
   loss_type: stablemax_cross_entropy
 
 halt_exploration_prob: 0.1
-halt_max_steps: 16
+halt_max_steps: 32
 
-H_cycles: 3
-L_cycles: 4
+H_cycles: 6
+L_cycles: 8
 
 H_layers: 0
 L_layers: 2
