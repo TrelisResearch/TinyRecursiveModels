@@ -20,7 +20,7 @@ evaluators:
   - name: arc@ARC
 
 # Hyperparams - Training
-global_batch_size: 768
+global_batch_size: 1536
 eval_global_batch_size: null
 
 epochs: 35000
@@ -30,7 +30,7 @@ checkpoint_every_n_steps: null
 eval_max_augmentations: null
 puzzle_emb_reinit_strategy: "mean"
 
-lr: 1.4e-4
+lr: 4e-4
 lr_min_ratio: 1.0
 lr_warmup_steps: 4000
 
@@ -41,12 +41,12 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1.4e-2
+puzzle_emb_lr: 4e-2
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
 
 ema: True # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
-freeze_weights: True # If True, freeze weights and only learn the embeddings
-freeze_weights_epochs: 2000
+freeze_weights: False # If True, freeze weights and only learn the embeddings
+freeze_weights_epochs: null

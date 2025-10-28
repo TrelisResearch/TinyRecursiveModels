@@ -228,7 +228,7 @@ uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/tama \
   --subsets tama \
-  --test-set-name evaluation2
+  --test-set-name tama
 ```
 
 **aa1 model**
@@ -252,7 +252,7 @@ run_name="postrain_aa2"
 uv pip install hf_transfer
 hf download Trelis/TRM-ARC-AGI-II \
   step_723914 \
-  --local-dir pretrained \
+  --local-dir pretrained && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
   data_paths="['data/tama']" \
