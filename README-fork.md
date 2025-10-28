@@ -27,17 +27,17 @@ export GIT_USER_EMAIL="your@email.com"
 ## Training Details
 ### Slim Pre-training
 ```bash
-run_name="pretrain_slim"
+run_name="pretrain_slim_8xcycles"
 python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-pretrain \
-  --subsets training-hard evaluation2 \
+  --subsets traininghard evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain_slim \
   data_paths=['data/arc2-pretrain'] \
   arch=trm-slim \
-  +run_name="${run_name}" > pretrain_slim.log &
+  +run_name="${run_name}" > pretrain_slim_8xcycles.log &
 ```
 ### Synthetic Pipeline
 #### Pre-training Synth
