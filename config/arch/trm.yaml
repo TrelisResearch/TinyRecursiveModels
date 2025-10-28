@@ -5,10 +5,11 @@ loss:
 
 halt_exploration_prob: 0.1
 halt_max_steps: 16
+halt_max_steps_eval: null
 puzzle_emb_dropout: 0.0
 grid_token_dropout: 0.0
-grid_noise_prob: 0.0
-grid_noise_fraction: 0.0
+grid_noise_prob: 0.05
+grid_noise_fraction: 0.02
 
 H_cycles: 3
 L_cycles: 4

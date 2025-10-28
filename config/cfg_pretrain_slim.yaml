@@ -27,6 +27,8 @@ eval_interval: 10000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 eval_max_augmentations: null
+halt_max_steps_eval: null
+puzzle_emb_reinit_strategy: "mean"
 
 lr: 4e-4
 lr_min_ratio: 1.0

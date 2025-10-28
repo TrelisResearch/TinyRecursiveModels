@@ -222,6 +222,47 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
+## Post-training on TAMA
+```bash
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/tama \
+  --subsets tama \
+  --test-set-name evaluation2
+```
+
+**aa1 model**
+```bash
+run_name="postrain_aa1"
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/tama']" \
+  data_paths_test="['data/tama']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > postrain_aa1.log &
+```
+
+**aa2 model**
+```bash
+run_name="postrain_aa2"
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/tama']" \
+  data_paths_test="['data/tama']" \
+  load_checkpoint="pretrained/step_723914" \
+  +run_name=${run_name} > postrain_aa2.log &
+```
+
+
+
 ## eval2 dataset on aa1 model
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
