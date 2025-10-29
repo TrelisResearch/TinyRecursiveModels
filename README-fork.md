@@ -33,7 +33,7 @@ python -m dataset.build_arc_dataset \
   --output-dir data/arc2concept-aug-1000 \
   --subsets concept tama training2 evaluation2A evaluation2B \
   --test-set-name evaluation2B && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   +run_name="${run_name}" > pretrain_base_loop.log &
 ```
