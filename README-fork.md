@@ -35,15 +35,15 @@ hf download Trelis/TRM-ARC-AGI-II \
 
 ```bash
 run_name="ctd_train_AAII_50k"
-python -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2concept-aug-1000 \
-  --subsets concept tama training2 evaluation2 \
-  --test-set-name evaluation2-40 && \
+  uv run python -m dataset.build_arc_dataset \
+    --input-file-prefix kaggle/combined/arc-agi \
+    --output-dir data/arc2concept-aug-1000 \
+    --subsets concept tama training2 evaluation2-80 evaluation2-40 \
+    --test-set-name evaluation2-40 && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_ctd_pretrain \
+  data_paths="['data/arc2concept-aug-1000']" \
   load_checkpoint=/workspace/TinyRecursiveModels-private/pretrained/step_723914 \
-  data_paths=['data/arc2-pretrain'] \
   +run_name="${run_name}" > ctd_train_AAII_50k.log &
 ```
 
@@ -246,7 +246,7 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## Post-training on TAMA
 ```bash
-uv run python -m dataset.build_arc_dataset \
+uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/tama \
   --subsets tama \
@@ -270,17 +270,17 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 **aa2 model**
 ```bash
-run_name="postrain_aa2_drp"
+run_name="postrain_aa2_ctd_115343"
 uv pip install hf_transfer
-hf download Trelis/TRM-ARC-AGI-II \
-  step_723914 \
+uv run hf download Trelis/TRM-AAII-ctd-50k \
+  step_115343 \
   --local-dir pretrained && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
   data_paths="['data/tama']" \
   data_paths_test="['data/tama']" \
-  load_checkpoint="pretrained/step_723914" \
-  +run_name=${run_name} > postrain_aa2_drp.log &
+  load_checkpoint="pretrained/step_115343" \
+  +run_name=${run_name} > postrain_aa2_ctd_115343.log &
 ```
 **aa2 slim model from oct 27th**
 ```bash
