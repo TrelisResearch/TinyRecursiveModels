@@ -671,7 +671,7 @@ def evaluate_with_adaptation(config: PretrainConfig, train_state: TrainState, ev
     support_lookup, _ = _build_puzzle_lookup(support_dataset)
     _, query_slices = _build_puzzle_lookup(query_dataset)
 
-    base_state = {k: v.detach().cpu().clone() for k, v in train_state.model.state_dict().items()}
+    base_state = {k: v.detach().clone() for k, v in train_state.model.state_dict().items()}
 
     return_keys = set(config.eval_save_outputs)
     for evaluator in evaluators:
@@ -687,6 +687,12 @@ def evaluate_with_adaptation(config: PretrainConfig, train_state: TrainState, ev
 
     total_tasks = len(query_slices)
 
+    max_global_batch = max(global_inner_batch, eval_global_batch)
+    local_task_batch = max_global_batch // world_size
+
+    task_model_cls = load_model_class(config.arch.name)
+    task_loss_cls = load_model_class(config.arch.loss.name)
+
     for task_idx, query_slice in enumerate(query_slices):
         puzzle_id = query_slice.puzzle_id
         set_name = query_slice.set_name
@@ -694,14 +700,12 @@ def evaluate_with_adaptation(config: PretrainConfig, train_state: TrainState, ev
 
         task_model_cfg = dict(
             **config.arch.__pydantic_extra__,  # type: ignore
-            batch_size=config.global_batch_size // world_size,
+            batch_size=local_task_batch,
             vocab_size=eval_metadata.vocab_size,
             seq_len=eval_metadata.seq_len,
             num_puzzle_identifiers=eval_metadata.num_puzzle_identifiers,
             causal=False,
         )
-        task_model_cls = load_model_class(config.arch.name)
-        task_loss_cls = load_model_class(config.arch.loss.name)
         with torch.device("cuda"):
             task_model: nn.Module = task_model_cls(task_model_cfg)
             task_model = task_loss_cls(task_model, **config.arch.loss.__pydantic_extra__)  # type: ignore
