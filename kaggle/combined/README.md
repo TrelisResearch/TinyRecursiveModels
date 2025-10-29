@@ -3,6 +3,7 @@ Average numbers of input grids per puzzle across the ARC-AGI challenge files in 
 | challenges file | puzzles | avg. train inputs | avg. test inputs |
 | --- | ---: | ---: | ---: |
 | `arc-agi_concept_challenges.json` | 160 | 2.67 | 3.00 |
+| `arc-agi_evaluation2clean_challenges.json` | 114 | 2.97 | 1.46 |
 | `arc-agi_evaluation2_challenges.json` | 120 | 2.98 | 1.43 |
 | `arc-agi_evaluation2-40_challenges.json` | 40 | 2.98 | 1.50 |
 | `arc-agi_evaluation2-80_challenges.json` | 80 | 2.99 | 1.40 |
@@ -19,6 +20,7 @@ Average numbers of reference solutions per puzzle for the accompanying solution 
 | solutions file | puzzles | avg. solutions |
 | --- | ---: | ---: |
 | `arc-agi_concept_solutions.json` | 160 | 3.00 |
+| `arc-agi_evaluation2clean_solutions.json` | 114 | 1.46 |
 | `arc-agi_evaluation2-40_solutions.json` | 40 | 1.50 |
 | `arc-agi_evaluation2-80_solutions.json` | 80 | 1.40 |
 | `arc-agi_evaluation2_solutions.json` | 120 | 1.43 |
