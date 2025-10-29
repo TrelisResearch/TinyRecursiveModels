@@ -669,6 +669,7 @@ def evaluate_with_adaptation(config: PretrainConfig, train_state: TrainState, ev
     )
 
     support_lookup, _ = _build_puzzle_lookup(support_dataset)
+    support_metadata = support_dataset.metadata
     _, query_slices = _build_puzzle_lookup(query_dataset)
 
     base_state = {k: v.detach().clone() for k, v in train_state.model.state_dict().items()}
@@ -701,16 +702,16 @@ def evaluate_with_adaptation(config: PretrainConfig, train_state: TrainState, ev
         task_model_cfg = dict(
             **config.arch.__pydantic_extra__,  # type: ignore
             batch_size=local_task_batch,
-            vocab_size=eval_metadata.vocab_size,
-            seq_len=eval_metadata.seq_len,
-            num_puzzle_identifiers=eval_metadata.num_puzzle_identifiers,
+            vocab_size=support_metadata.vocab_size,
+            seq_len=support_metadata.seq_len,
+            num_puzzle_identifiers=support_metadata.num_puzzle_identifiers,
             causal=False,
         )
         with torch.device("cuda"):
             task_model: nn.Module = task_model_cls(task_model_cfg)
             task_model = task_loss_cls(task_model, **config.arch.loss.__pydantic_extra__)  # type: ignore
-            task_model.cuda()
             task_model.load_state_dict(base_state, strict=True)
+            task_model = task_model.cuda()
         task_model.zero_grad(set_to_none=True)
         task_model.eval()
 
