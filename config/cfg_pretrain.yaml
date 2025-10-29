@@ -17,6 +17,7 @@ checkpoint_path: null
 
 evaluators:
   - name: arc@ARC
+    aggregated_voting: False
 
 # Hyperparams - Training
 global_batch_size: 1536

@@ -328,7 +328,6 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 
 ## eval2 dataset on aa1 model
-- **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 uv pip install hf_transfer
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
@@ -341,6 +340,19 @@ uv run python -m dataset.build_arc_dataset \
   --test-set-name evaluation2 \
   --num-aug 1000
 ```
+
+- **No aggregation**
+```bash
+run_name="posttrain_aa1_aa2e_no_agg"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  evaluators.0.aggregated_voting=False \
+  +run_name=${run_name} > posttrain_aa1_aa2e_no_agg.log &
+```
+
 - **Puzz Dropout**:
 ```bash
 run_name="posttrain_aa1_aa2e_puzz_drp"
