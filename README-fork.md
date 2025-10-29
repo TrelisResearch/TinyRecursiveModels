@@ -123,6 +123,40 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > posttrain_slim_synth-step_113369.log &
 ```
 
+## Adaptive Evaluation & Submission
+The evaluation flow now supports per-task adaptation and mirrors the pretraining submission writer.
+
+```bash
+# 1) Pull the released checkpoint
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained
+
+# 2) Build the evaluation2clean dataset (train -> support, test -> query)
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-evaluation2clean \
+  --subsets evaluation2clean \
+  --test-set-name evaluation2clean
+
+# 3) Run adaptive evaluation + submission
+run_name="postrain_aa1_taskwise"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_tta \
+  data_paths=['data/arc2-evaluation2clean'] \
+  data_paths_test=['data/arc2-evaluation2clean'] \
+  load_checkpoint=pretrained/step_155718 \
+  +run_name="${run_name}" \
+  test_time_adapt.enabled=true \
+  test_time_adapt.inner_steps=8 \
+  test_time_adapt.inner_batch_size=384 \
+  test_time_adapt.max_support_examples=3000 \
+  test_time_adapt.log_interval=2 > postrain_aa1_taskwise.log &
+```
+
+Each task clones the base model, runs the configured inner updates on its train examples, and then evaluates on the held-out test set. Console output and W&B capture inner-loop diagnostics, and the ARC evaluator emits a Kaggle submission JSON at `${checkpoint_root}/evaluator_ARC_step_<global_step>/submission.json`. When a task has no test examples the writer falls back to the same placeholder handling as the pretraining script to keep downstream tooling stable.
+
 ### Production Pipeline
 #### Production Pre-training
 ```bash

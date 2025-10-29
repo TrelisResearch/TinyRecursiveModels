@@ -59,6 +59,10 @@ class PuzzleDataset(IterableDataset):
         self.config = config
         self.split = split
 
+        # Mapping from internal dataset key (e.g., "all1") to metadata about
+        # the originating dataset index and logical set name.
+        self._data_key_info: Dict[str, Dict[str, int]] = {}
+
         # Merge multiple metadata
         prev_seq_len = None
         prev_vocab_size = None
@@ -144,6 +148,10 @@ class PuzzleDataset(IterableDataset):
                     set_name_ = set_name + str(i)
                 else:
                     set_name_ = set_name
+                self._data_key_info[set_name_] = {
+                    "dataset_index": i,
+                    "set_name": set_name
+                }
                 self._data[set_name_] = {
                     field_name: np.load(os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy"), mmap_mode=mmap_mode)
                     for field_name, mmap_mode in field_mmap_modes.items()
@@ -370,3 +378,8 @@ class PuzzleDataset(IterableDataset):
             yield from self._iter_test()
         else:
             yield from self._iter_train()
+
+    def get_loaded_data(self):
+        """Return the lazily-loaded numpy-backed data structures with key metadata."""
+        self._lazy_load_dataset()
+        return self._data, self._data_key_info
