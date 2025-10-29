@@ -1,5 +1,4 @@
 # ARC training config
-
 defaults:
   - arch: trm
   - _self_

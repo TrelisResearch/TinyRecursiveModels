@@ -119,8 +119,7 @@ class TinyRecursiveReasoningModel_ACTV1ReasoningModule(nn.Module):
         super().__init__()
         self.layers = torch.nn.ModuleList(layers)
 
-    def forward(self, hidden_states: torch.Tensor, input_injection: torch.Tensor, **kwargs) -> torch.Tensor:
-        hidden_states = hidden_states + input_injection
+    def forward(self, hidden_states: torch.Tensor, **kwargs) -> torch.Tensor:
         for layer in self.layers:
             hidden_states = layer(hidden_states=hidden_states, **kwargs)
         return hidden_states
@@ -142,6 +141,9 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.q_head       = CastedLinear(self.config.hidden_size, 2, bias=True)
 
         self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)  if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len  # ceil div
+        self.total_seq_len = self.config.seq_len + self.puzzle_emb_len
+        self.latent_block_len = self.total_seq_len
+        self.combined_len = self.total_seq_len * 3  # [z_L | z_H | input]
         if self.config.puzzle_emb_ndim > 0:
             # Zero init puzzle embeddings
             self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
@@ -150,7 +152,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         # LM Blocks
         if self.config.pos_encodings == "rope":
             self.rotary_emb = RotaryEmbedding(dim=self.config.hidden_size // self.config.num_heads,
-                                              max_position_embeddings=self.config.seq_len + self.puzzle_emb_len,
+                                              max_position_embeddings=self.combined_len,
                                               base=self.config.rope_theta)
         elif self.config.pos_encodings == "learned":
             self.embed_pos = CastedEmbedding(self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, init_std=embed_init_std, cast_to=self.forward_dtype)
@@ -161,8 +163,17 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.L_level = TinyRecursiveReasoningModel_ACTV1ReasoningModule(layers=[TinyRecursiveReasoningModel_ACTV1Block(self.config) for _i in range(self.config.L_layers)])
 
         # Initial states
-        self.H_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
-        self.L_init = nn.Buffer(trunc_normal_init_(torch.empty(self.config.hidden_size, dtype=self.forward_dtype), std=1), persistent=True)
+        if self.config.mlp_t:
+            raise NotImplementedError("mlp_t=True is not supported with separated input/context tokens.")
+
+        self.H_init = nn.Buffer(
+            trunc_normal_init_(torch.empty(1, self.latent_block_len, self.config.hidden_size, dtype=self.forward_dtype), std=1),
+            persistent=True,
+        )
+        self.L_init = nn.Buffer(
+            trunc_normal_init_(torch.empty(1, self.latent_block_len, self.config.hidden_size, dtype=self.forward_dtype), std=1),
+            persistent=True,
+        )
 
         # Q head special init
         # Init Q to (almost) zero for faster learning during bootstrapping
@@ -201,8 +212,8 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
     def empty_carry(self, batch_size: int):
         return TinyRecursiveReasoningModel_ACTV1InnerCarry(
-            z_H=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
-            z_L=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
+            z_H=torch.empty(batch_size, self.latent_block_len, self.config.hidden_size, dtype=self.forward_dtype),
+            z_L=torch.empty(batch_size, self.latent_block_len, self.config.hidden_size, dtype=self.forward_dtype),
         )
         
     def reset_carry(self, reset_flag: torch.Tensor, carry: TinyRecursiveReasoningModel_ACTV1InnerCarry):
@@ -219,19 +230,34 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         # Input encoding
         input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
 
+        # Helper for RoPE slicing
+        def _reason(sequence: torch.Tensor) -> torch.Tensor:
+            if seq_info["cos_sin"] is not None:
+                cos, sin = seq_info["cos_sin"]
+                seq_len = sequence.shape[-2]
+                return self.L_level(sequence, cos_sin=(cos[:seq_len], sin[:seq_len]))
+            return self.L_level(sequence, cos_sin=None)
+
         # Forward iterations
-        it = 0
         z_H, z_L = carry.z_H, carry.z_L
         # H_cycles-1 without grad
         with torch.no_grad():
             for _H_step in range(self.config.H_cycles-1):
                 for _L_step in range(self.config.L_cycles):
-                    z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
-                z_H = self.L_level(z_H, z_L, **seq_info)
+                    combined = torch.cat((z_L, z_H, input_embeddings), dim=-2)
+                    updated = _reason(combined)
+                    z_L = updated[:, :self.latent_block_len].detach()
+                combined = torch.cat((z_L, z_H, input_embeddings), dim=-2)
+                updated = _reason(combined)
+                z_H = updated[:, self.latent_block_len: 2 * self.latent_block_len].detach()
         # 1 with grad
         for _L_step in range(self.config.L_cycles):
-            z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
-        z_H = self.L_level(z_H, z_L, **seq_info)
+            combined = torch.cat((z_L, z_H, input_embeddings), dim=-2)
+            updated = _reason(combined)
+            z_L = updated[:, :self.latent_block_len]
+        combined = torch.cat((z_L, z_H, input_embeddings), dim=-2)
+        updated = _reason(combined)
+        z_H = updated[:, self.latent_block_len: 2 * self.latent_block_len]
 
         # LM Outputs
         new_carry = TinyRecursiveReasoningModel_ACTV1InnerCarry(z_H=z_H.detach(), z_L=z_L.detach())  # New carry no grad
