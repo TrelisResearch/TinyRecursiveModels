@@ -48,7 +48,7 @@ hf download Trelis/TRM-ARC-AGI-II \
 
 ```bash
 run_name="ctd_train_AAII_50k"
-  uv run python -m dataset.build_arc_dataset \
+uv run python -m dataset.build_arc_dataset \
     --input-file-prefix kaggle/combined/arc-agi \
     --output-dir data/arc2concept-aug-1000 \
     --subsets concept tama training2 evaluation2-80 evaluation2-40 \
@@ -349,7 +349,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  evaluators.0.aggregated_voting=False \
+  +evaluators.0.aggregated_voting=False \
   +run_name=${run_name} > posttrain_aa1_aa2e_no_agg.log &
 ```
 
