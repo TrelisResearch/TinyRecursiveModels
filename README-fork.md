@@ -40,6 +40,21 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_500k.log &
 ```
 
+### High Epochs on High Quality Data - no noise
+```bash
+run_name="pretrain_500k_noiseless"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-pretrain-500k \
+  --subsets evaluation2A evaluation2B traininghard \
+  --test-set-name evaluation2B && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_8x \
+  data_paths=['data/arc2-pretrain-500k'] \
+  arch=trm_noiseless \
+  +run_name="${run_name}" > pretrain_500k_noiseless.log &
+```
+
 ### FO-MAML-style Meta Pretraining
 - Use `pretrain.py --config-name cfg_pretrain_meta` to enable the meta loop (sets `meta_learning.enabled: true`, `inner_steps: 8` and points both train and test splits to the same dataset so support/query pairs share `puzzle_identifiers`).
 - Override on the CLI if you prefer another config: `+meta_learning.enabled=true meta_learning.inner_steps=8 meta_learning.inner_lr=5e-4` (leave `inner_lr` null to reuse the main `lr`).
