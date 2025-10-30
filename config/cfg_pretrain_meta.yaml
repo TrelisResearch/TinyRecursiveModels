@@ -36,7 +36,7 @@ meta_learning:
 
 lr: 1e-4
 lr_min_ratio: 1.0
-lr_warmup_steps: 2000
+lr_warmup_steps: 256
 
 # Standard hyperparameter settings for LM, as used in Llama
 beta1: 0.9
