@@ -745,6 +745,7 @@ def train_batch_meta(
     inner_steps = max(int(meta_cfg.inner_steps), 1)
 
     support_loss_accum = torch.zeros((), device=device, dtype=torch.float32)
+    support_total_effective = torch.zeros((), device=device, dtype=torch.float32)
 
     for _ in range(inner_steps):
         for param in params:
@@ -761,6 +762,7 @@ def train_batch_meta(
 
         (support_loss / support_effective_size).backward()
         support_loss_accum += support_loss.detach().to(device=device, dtype=torch.float32)
+        support_total_effective += torch.tensor(float(support_effective_size), device=device, dtype=torch.float32)
 
         with torch.no_grad():
             for param in params:
@@ -834,8 +836,10 @@ def train_batch_meta(
     else:
         metrics = {}
 
-    support_loss_avg = (support_loss_accum / inner_steps).to(device=device, dtype=query_loss.dtype)
+    support_count = torch.clamp(support_total_effective, min=1.0)
+    support_loss_avg = (support_loss_accum / support_count).to(device=device, dtype=query_loss.dtype)
     metrics["support_loss_avg"] = support_loss_avg.detach()
+    metrics["support_effective_count"] = support_count.detach()
     metrics["meta_inner_steps"] = torch.tensor(float(inner_steps), device=device, dtype=query_loss.dtype)
 
     trunk_frozen = False
@@ -875,7 +879,7 @@ def train_batch_meta(
             metric_values = metric_values.cpu().numpy()
             reduced_metrics = {k: metric_values[i] for i, k in enumerate(metric_keys)}
 
-            raw_metric_keys = {"support_loss_avg", "meta_inner_steps"}
+            raw_metric_keys = {"support_loss_avg", "meta_inner_steps", "support_effective_count"}
             raw_metrics = {}
             for key in list(reduced_metrics.keys()):
                 if key in raw_metric_keys:
