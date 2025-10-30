@@ -31,12 +31,13 @@ puzzle_emb_reinit_strategy: "mean"
 
 meta_learning:
   enabled: true
-  inner_lr: null        # falls back to lr if left null
-  inner_steps: 1
+  inner_lr: 2e-4        # 3x outer lr (adjust as needed)
+  inner_lr_embed: 2e-2  # 3x outer embedding lr
+  inner_steps: 8
 
 lr: 1e-4
 lr_min_ratio: 1.0
-lr_warmup_steps: 256
+lr_warmup_steps: 2000
 
 # Standard hyperparameter settings for LM, as used in Llama
 beta1: 0.9
@@ -53,4 +54,4 @@ min_eval_interval: 0
 ema: True
 ema_rate: 0.999
 freeze_weights: True
-freeze_weights_epochs: 256
+freeze_weights_epochs: 2500
