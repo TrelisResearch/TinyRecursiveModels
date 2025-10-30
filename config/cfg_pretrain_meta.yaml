@@ -53,5 +53,5 @@ min_eval_interval: 0
 
 ema: True
 ema_rate: 0.999
-freeze_weights: True
-freeze_weights_epochs: 2500
+freeze_weights: False
+freeze_weights_epochs: null

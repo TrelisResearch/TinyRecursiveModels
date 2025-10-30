@@ -35,14 +35,14 @@ export GIT_USER_EMAIL="your@email.com"
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-meta-eval \
-  --subsets evaluation2B \
-  --test-set-name evaluation2B
+  --subsets evaluation2B
 ```
   The generated `train/` directory provides support puzzles, and `test/` is used for query evaluation.
 - **Running with meta evaluation (planned):** once the meta-aware eval path is wired up, pass the dataset root through `+meta_eval.data_paths=['data/arc2-meta-eval']` alongside the usual training arguments so evaluation can take a support batch, apply one inner update, and score the paired query batch.
+- `dataset.build_arc_dataset` now routes every subset's `test` examples to the query split by default; repeat `--test-set-names subset` if you want only specific subsets treated as queries.
 
 ```bash
-run_name="metatrain_base"
+run_name="metatrain_base_8x"
 uv pip install hf_transfer
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
   step_155718 \
@@ -50,8 +50,7 @@ hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-metatrain \
-  --subsets evaluation2A \
-  --test-set-name evaluation2A && \
+  --subsets evaluation2A evaluation2C traininghard && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain_meta \
   load_checkpoint="pretrained/step_155718" \
@@ -59,7 +58,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test=['data/arc2-metatrain'] \
   arch=trm \
   +meta_eval.data_paths=['data/arc2-meta-eval'] \
-  +run_name="${run_name}" > metatrain_base.log &
+  +run_name="${run_name}" > metatrain_base_8x.log &
 ```
 
 ### ctd pre-training synth

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass
 import os
 import json
@@ -6,7 +6,7 @@ import hashlib
 import numpy as np
 
 from argdantic import ArgParser
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from dataset.common import PuzzleDatasetMetadata, dihedral_transform, inverse_dihedral_transform
 
@@ -18,12 +18,26 @@ class DataProcessConfig(BaseModel):
     input_file_prefix: str
     output_dir: str
     subsets: List[str]
-    test_set_name: str
-    test_set_name2: str = "your_test_set"
+    test_set_names: List[str] = Field(default_factory=list)
+    legacy_test_set_name: Optional[str] = Field(default=None, alias="test_set_name")
+    legacy_test_set_name2: Optional[str] = Field(default=None, alias="test_set_name2")
     seed: int = 42
     num_aug: int = 1000
     puzzle_identifiers_start: int = 1 # start > 1 to handle multiple datasets
-    
+    grid_noise_prob: float = 0.0
+    grid_noise_fraction: float = 0.0
+
+    @model_validator(mode="after")
+    def _merge_legacy_test_sets(self):
+        names = list(self.test_set_names)
+        if self.legacy_test_set_name:
+            names.append(self.legacy_test_set_name)
+        if self.legacy_test_set_name2:
+            names.append(self.legacy_test_set_name2)
+        seen = set()
+        self.test_set_names = [name for name in names if not (name in seen or seen.add(name))]
+        return self
+
 ARCMaxGridSize = 30
 ARCAugmentRetriesFactor = 5
 
@@ -166,11 +180,13 @@ def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count:
 
 def load_puzzles_arcagi(config: DataProcessConfig):
     train_examples_dest = ("train", "all")
-    test_examples_map = {
-        config.test_set_name: [(1.0, ("test", "all"))],
-        config.test_set_name2: [(1.0, ("test", "all"))],
-        "_default": [(1.0, ("train", "all"))]
-    }
+    test_examples_map = {}
+    if config.test_set_names:
+        for name in config.test_set_names:
+            test_examples_map[name] = [(1.0, ("test", "all"))]
+        test_examples_map["_default"] = [(1.0, ("train", "all"))]
+    else:
+        test_examples_map["_default"] = [(1.0, ("test", "all"))]
     
     test_puzzles = {}
     results = {}
@@ -327,11 +343,6 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
-
-
-
-
 
 
 
