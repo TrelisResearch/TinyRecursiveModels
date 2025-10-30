@@ -254,7 +254,8 @@ uv run python -m scripts.chunked_posttrain \
   --chunk-size 38 \
   --enable-wandb \
   --num-aug 1000 \
-  --dry-run
+  --dry-run \
+  --skip-download
 ```
 
 - Automatically downloads `Sanjin2024/TinyRecursiveModels-ARC-AGI-1/step_155718` (skip with `--skip-download` if already cached).
