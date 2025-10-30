@@ -32,7 +32,7 @@ puzzle_emb_reinit_strategy: "mean"
 meta_learning:
   enabled: true
   inner_lr: null        # falls back to lr if left null
-  inner_steps: 8
+  inner_steps: 1
 
 lr: 1e-4
 lr_min_ratio: 1.0
@@ -53,4 +53,4 @@ min_eval_interval: 0
 ema: True
 ema_rate: 0.999
 freeze_weights: True
-freeze_weights_epochs: 64
+freeze_weights_epochs: 256
