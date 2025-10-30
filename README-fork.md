@@ -33,14 +33,20 @@ export GIT_USER_EMAIL="your@email.com"
 
 ```bash
 run_name="metatrain_base"
-python -m dataset.build_arc_dataset \
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-metatrain \
   --subsets evaluation2A \
   --test-set-name evaluation2A && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain_meta \
+  load_checkpoint="pretrained/step_155718" \
   data_paths=['data/arc2-metatrain'] \
+  data_paths_test=['data/arc2-metatrain'] \
   arch=trm \
   +run_name="${run_name}" > metatrain_base.log &
 ```
