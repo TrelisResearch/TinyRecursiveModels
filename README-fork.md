@@ -25,6 +25,26 @@ export GIT_USER_EMAIL="your@email.com"
 ```
 
 ## Pre-Training Details
+### FO-MAML-style Meta Pretraining
+- Use `pretrain.py --config-name cfg_pretrain_meta` to enable the meta loop (sets `meta_learning.enabled: true`, `inner_steps: 8` and points both train and test splits to the same dataset so support/query pairs share `puzzle_identifiers`).
+- Override on the CLI if you prefer another config: `+meta_learning.enabled=true meta_learning.inner_steps=8 meta_learning.inner_lr=5e-4` (leave `inner_lr` null to reuse the main `lr`).
+- Ensure the query split contains the same tasks as train (e.g. mirror the dataset under `data_paths_test`) so the loader can fetch matching query puzzles.
+- Expect slightly higher memory use—the inner loop keeps a parameter copy while applying support steps.
+
+```bash
+run_name="metatrain_base"
+python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-metatrain \
+  --subsets evaluation2A \
+  --test-set-name evaluation2A && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_meta \
+  data_paths=['data/arc2-metatrain'] \
+  arch=trm \
+  +run_name="${run_name}" > metatrain_base.log &
+```
+
 ### ctd pre-training synth
 ```bash
 uv pip install hf_transfer
@@ -248,6 +268,7 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 ### Chunked Post-training
 `scripts/chunked_posttrain.py` automates the full pipeline: dataset splitting, augmented builds, sequential training, submission collection, and merged pass@k scoring.
 
+Chunks of 38
 ```bash
 nohup uv run python -m scripts.chunked_posttrain \
   --subset evaluation2clean \
@@ -255,11 +276,51 @@ nohup uv run python -m scripts.chunked_posttrain \
   --enable-wandb \
   --wandb-project arc-eval2clean \
   --num-aug 1000 \
-  --skip-download \
+  --overwrite-splits \
+  --rebuild-datasets \
   > chunked_posttrain.out 2>&1 &
 tail -f chunked_posttrain.out            # orchestrator progress
 tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
 ```
+Merged submission metrics:
+  pass@1: 0.0219
+  pass@2: 0.0307
+
+One single chunk
+```bash
+nohup uv run python -m scripts.chunked_posttrain \
+  --subset evaluation2clean \
+  --chunk-size 120 \
+  --enable-wandb \
+  --wandb-project arc-eval2clean \
+  --num-aug 1000 \
+  --skip-download \
+  --overwrite-splits \
+  --rebuild-datasets \
+  > chunked_posttrain.out 2>&1 &
+tail -f chunked_posttrain.out            # orchestrator progress
+tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
+```
+Merged submission metrics:
+  pass@2: 0.02193
+
+And try with embeddings frozen (todo, needs yaml update):
+```bash
+nohup uv run python -m scripts.chunked_posttrain \
+  --subset evaluation2clean \
+  --chunk-size 120 \
+  --enable-wandb \
+  --wandb-project arc-eval2clean \
+  --num-aug 1000 \
+  --skip-download \
+  --overwrite-splits \
+  --rebuild-datasets \
+  > chunked_posttrain.out 2>&1 &
+tail -f chunked_posttrain.out            # orchestrator progress
+tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
+```
+Merged submission metrics:
+  pass@2: ?!?
 
 - Automatically downloads `Sanjin2024/TinyRecursiveModels-ARC-AGI-1/step_155718` (skip with `--skip-download` if already cached).
 - Splits `kaggle/combined/arc-agi_evaluation2clean_{challenges,solutions}.json` into 38-puzzle chunks (`evaluation2cleanA/B/C` by default) and stores the new JSONs alongside the originals.

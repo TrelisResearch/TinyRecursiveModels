@@ -1,4 +1,4 @@
-# ARC training config
+# ARC FOMAML-style pretraining config
 
 defaults:
   - arch: trm
@@ -9,9 +9,9 @@ hydra:
 
 entity: "trelis"
 
-# Data path
-data_paths: ['data/arc2concept-aug-1000']
-data_paths_test: []
+# Data paths
+data_paths: null
+data_paths_test: null
 
 load_checkpoint: null
 checkpoint_path: null
@@ -19,19 +19,19 @@ checkpoint_path: null
 evaluators:
   - name: arc@ARC
 
-# Hyperparams - Training
+# Hyperparameters - Training
 global_batch_size: 738
 
-epochs: 100000
-eval_interval: 10000
+epochs: 25000
+eval_interval: 2500
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 halt_max_steps_eval: null
 puzzle_emb_reinit_strategy: "mean"
 
 meta_learning:
-  enabled: false
-  inner_lr: null
+  enabled: true
+  inner_lr: null        # falls back to lr if left null
   inner_steps: 8
 
 lr: 1e-4
@@ -48,9 +48,9 @@ puzzle_emb_weight_decay: 0.1
 puzzle_emb_lr: 1e-2
 
 seed: 0
-min_eval_interval: 0 # when to start the eval
+min_eval_interval: 0
 
-ema: True # use Exponential-Moving-Average
-ema_rate: 0.999 # EMA-rate
-freeze_weights: False # If True, freeze weights and only learn the embeddings
+ema: True
+ema_rate: 0.999
+freeze_weights: False
 freeze_weights_epochs: null
