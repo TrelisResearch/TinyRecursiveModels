@@ -331,13 +331,13 @@ uv run python -m dataset.build_arc_dataset \
 ```
 - **Single Task**:
 ```bash
-run_name="posttrain_single"
+run_name="posttrain_single_long"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
-  --config-name cfg_posttrain \
+  --config-name cfg_posttrain_long \
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
-  +run_name=${run_name} > posttrain_single.log &
+  +run_name=${run_name} > posttrain_single_long.log &
 ```
 
 - **Puzz Dropout**:
