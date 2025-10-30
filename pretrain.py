@@ -455,18 +455,40 @@ def save_train_state(config: PretrainConfig, train_state: TrainState):
     torch.save(train_state.model.state_dict(), os.path.join(config.checkpoint_path, f"step_{train_state.step}"))
 
 
-def _remap_compiled_state_dict(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    """Handle checkpoints saved from torch.compile (keys prefixed with _orig_mod.)."""
-    if not any(key.startswith("_orig_mod.") for key in state_dict.keys()):
+def _align_state_dict_for_compile(
+    state_dict: Dict[str, torch.Tensor], model: nn.Module
+) -> Dict[str, torch.Tensor]:
+    """
+    Ensure checkpoint keys match whether the target model is compiled or not.
+    Compiled modules prefix parameters with `_orig_mod.`; uncompiled ones do not.
+    """
+    model_state_keys = model.state_dict().keys()
+    model_expects_prefix = any(key.startswith("_orig_mod.") for key in model_state_keys)
+    ckpt_has_prefix = any(key.startswith("_orig_mod.") for key in state_dict.keys())
+
+    # If both sides agree, nothing to do.
+    if model_expects_prefix == ckpt_has_prefix:
         return state_dict
 
-    remapped = {}
     prefix = "_orig_mod."
-    for key, value in state_dict.items():
-        if key.startswith(prefix):
-            remapped[key[len(prefix):]] = value
-        else:
-            remapped[key] = value
+    remapped: Dict[str, torch.Tensor] = {}
+    if ckpt_has_prefix and not model_expects_prefix:
+        # Strip prefix from checkpoint keys to fit an uncompiled model.
+        for key, value in state_dict.items():
+            if key.startswith(prefix):
+                remapped[key[len(prefix):]] = value
+            else:
+                remapped[key] = value
+    elif model_expects_prefix and not ckpt_has_prefix:
+        # Add prefix so weights load into a compiled model.
+        for key, value in state_dict.items():
+            if key.startswith(prefix):
+                remapped[key] = value
+            else:
+                remapped[prefix + key] = value
+    else:
+        remapped = state_dict
+
     return remapped
 
 
@@ -476,7 +498,7 @@ def load_checkpoint(model: nn.Module, config: PretrainConfig):
 
         # Load state dict
         state_dict = torch.load(config.load_checkpoint, map_location="cuda")
-        state_dict = _remap_compiled_state_dict(state_dict)
+        state_dict = _align_state_dict_for_compile(state_dict, model)
 
         # Resize and reset puzzle emb if needed
         puzzle_emb_keys = [

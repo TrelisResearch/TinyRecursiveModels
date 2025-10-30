@@ -411,6 +411,29 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > postrain_aa2_slim_prod_44072.log &
 ```
 
+### evaluation2B dataset on aa1 model meta-trained on evaluation2A
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-meta-1x \
+  step_3330 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2B \
+  --test-set-name evaluation2B \
+  --num-aug 1000
+```
+
+```bash
+run_name="posttrain_meta_1x"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_3330" \
+  +run_name=${run_name} > posttrain_meta_1x.log &
+```
 
 ### eval2 dataset on aa1 model
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
