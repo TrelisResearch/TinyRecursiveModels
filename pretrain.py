@@ -54,6 +54,7 @@ class EvaluatorConfig(pydantic.BaseModel):
 class MetaLearningConfig(pydantic.BaseModel):
     enabled: bool = False
     inner_lr: Optional[float] = None
+    inner_lr_embed: Optional[float] = None
     inner_steps: int = 1
 
 
@@ -739,7 +740,8 @@ def train_batch_meta(
     puzzle_emb = _get_puzzle_embedding_module(train_state.model)
     sparse_state = _SparseEmbeddingInnerLoopState() if puzzle_emb is not None else None
 
-    inner_lr = float(meta_cfg.inner_lr) if meta_cfg.inner_lr is not None else float(config.lr)
+    inner_lr_trunk = float(meta_cfg.inner_lr) if meta_cfg.inner_lr is not None else float(config.lr)
+    inner_lr_embed = float(meta_cfg.inner_lr_embed) if meta_cfg.inner_lr_embed is not None else float(config.puzzle_emb_lr)
     inner_steps = max(int(meta_cfg.inner_steps), 1)
 
     support_loss_accum = torch.zeros((), device=device, dtype=torch.float32)
@@ -764,13 +766,13 @@ def train_batch_meta(
             for param in params:
                 if param.grad is None:
                     continue
-                param.add_(param.grad, alpha=-inner_lr)
+                param.add_(param.grad, alpha=-inner_lr_trunk)
 
         if puzzle_emb is not None and sparse_state is not None:
             _apply_sparse_embedding_inner_step(
                 puzzle_emb=puzzle_emb,
                 blank_id=train_state.blank_identifier_id,
-                inner_lr=inner_lr,
+                inner_lr=inner_lr_embed,
                 state=sparse_state,
             )
 
