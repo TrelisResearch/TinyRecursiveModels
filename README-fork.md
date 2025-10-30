@@ -284,13 +284,17 @@ nohup uv run python -m scripts.chunked_posttrain \
   --num-aug 1000 \
   --overwrite-splits \
   --rebuild-datasets \
+  --overwrite-submissions \
   > chunked_posttrain.out 2>&1 &
 tail -f chunked_posttrain.out            # orchestrator progress
 tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
 ```
-Merged submission metrics:
+Merged submission metrics (no freezing of embeddings):
   pass@1: 0.0219
   pass@2: 0.0307
+
+And with freezing of embeddings:
+
 
 One single chunk
 ```bash
@@ -303,30 +307,17 @@ nohup uv run python -m scripts.chunked_posttrain \
   --skip-download \
   --overwrite-splits \
   --rebuild-datasets \
+  --overwrite-submissions \
   > chunked_posttrain.out 2>&1 &
 tail -f chunked_posttrain.out            # orchestrator progress
 tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
 ```
-Merged submission metrics:
+Merged submission metrics (no freezing of embeddings):
   pass@2: 0.02193
 
-And try with embeddings frozen (todo, needs yaml update):
-```bash
-nohup uv run python -m scripts.chunked_posttrain \
-  --subset evaluation2clean \
-  --chunk-size 120 \
-  --enable-wandb \
-  --wandb-project arc-eval2clean \
-  --num-aug 1000 \
-  --skip-download \
-  --overwrite-splits \
-  --rebuild-datasets \
-  > chunked_posttrain.out 2>&1 &
-tail -f chunked_posttrain.out            # orchestrator progress
-tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
-```
-Merged submission metrics:
-  pass@2: ?!?
+with freezing for first 3125 steps:
+  pass@1: 0.0219
+  pass@2: 0.0307
 
 - Automatically downloads `Sanjin2024/TinyRecursiveModels-ARC-AGI-1/step_155718` (skip with `--skip-download` if already cached).
 - Splits `kaggle/combined/arc-agi_evaluation2clean_{challenges,solutions}.json` into 38-puzzle chunks (`evaluation2cleanA/B/C` by default) and stores the new JSONs alongside the originals.

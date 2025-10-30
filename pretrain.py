@@ -426,32 +426,53 @@ def save_train_state(config: PretrainConfig, train_state: TrainState):
     torch.save(train_state.model.state_dict(), os.path.join(config.checkpoint_path, f"step_{train_state.step}"))
 
 
+def _remap_compiled_state_dict(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    """Handle checkpoints saved from torch.compile (keys prefixed with _orig_mod.)."""
+    if not any(key.startswith("_orig_mod.") for key in state_dict.keys()):
+        return state_dict
+
+    remapped = {}
+    prefix = "_orig_mod."
+    for key, value in state_dict.items():
+        if key.startswith(prefix):
+            remapped[key[len(prefix):]] = value
+        else:
+            remapped[key] = value
+    return remapped
+
+
 def load_checkpoint(model: nn.Module, config: PretrainConfig):
     if config.load_checkpoint is not None:
         print(f"Loading checkpoint {config.load_checkpoint}")
 
         # Load state dict
         state_dict = torch.load(config.load_checkpoint, map_location="cuda")
+        state_dict = _remap_compiled_state_dict(state_dict)
 
         # Resize and reset puzzle emb if needed
-        puzzle_emb_name = "_orig_mod.model.inner.puzzle_emb.weights"
-        expected_shape: torch.Size = model.model.puzzle_emb.weights.shape  # type: ignore
-        if puzzle_emb_name in state_dict:
-            puzzle_emb = state_dict[puzzle_emb_name]
-            if puzzle_emb.shape != expected_shape:
-                print(f"Resetting puzzle embedding as shape is different. Found {puzzle_emb.shape}, Expected {expected_shape}")
-                strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
-                puzzle_emb_float = puzzle_emb.to(torch.float32)
-                mean_vec = torch.mean(puzzle_emb_float, dim=0, keepdim=True)
-                if strategy == "mean":
-                    state_dict[puzzle_emb_name] = mean_vec.expand(expected_shape).to(puzzle_emb.dtype).contiguous()
-                elif strategy == "normal":
-                    std_vec = torch.std(puzzle_emb_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
-                    noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
-                    new_weights = noise * std_vec + mean_vec
-                    state_dict[puzzle_emb_name] = new_weights.to(puzzle_emb.dtype).contiguous()
-                else:
-                    raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
+        puzzle_emb_keys = [
+            "model.inner.puzzle_emb.weights",
+            "_orig_mod.model.inner.puzzle_emb.weights",
+        ]
+        for puzzle_emb_name in puzzle_emb_keys:
+            if puzzle_emb_name in state_dict:
+                expected_shape: torch.Size = model.model.puzzle_emb.weights.shape  # type: ignore
+                puzzle_emb = state_dict[puzzle_emb_name]
+                if puzzle_emb.shape != expected_shape:
+                    print(f"Resetting puzzle embedding as shape is different. Found {puzzle_emb.shape}, Expected {expected_shape}")
+                    strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
+                    puzzle_emb_float = puzzle_emb.to(torch.float32)
+                    mean_vec = torch.mean(puzzle_emb_float, dim=0, keepdim=True)
+                    if strategy == "mean":
+                        state_dict[puzzle_emb_name] = mean_vec.expand(expected_shape).to(puzzle_emb.dtype).contiguous()
+                    elif strategy == "normal":
+                        std_vec = torch.std(puzzle_emb_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
+                        noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
+                        new_weights = noise * std_vec + mean_vec
+                        state_dict[puzzle_emb_name] = new_weights.to(puzzle_emb.dtype).contiguous()
+                    else:
+                        raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
+                break
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False, assign=True)
         if len(unexpected_keys):
             print(f"Warning: unexpected checkpoint keys skipped: {unexpected_keys[:5]}{'...' if len(unexpected_keys) > 5 else ''}")
