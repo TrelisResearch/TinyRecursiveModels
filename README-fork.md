@@ -249,13 +249,14 @@ Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 `scripts/chunked_posttrain.py` automates the full pipeline: dataset splitting, augmented builds, sequential training, submission collection, and merged pass@k scoring.
 
 ```bash
-uv run python -m scripts.chunked_posttrain \
+nohup uv run python -m scripts.chunked_posttrain \
   --subset evaluation2clean \
   --chunk-size 38 \
   --enable-wandb \
   --num-aug 1000 \
-  --dry-run \
-  --skip-download
+  > chunked_posttrain.out 2>&1 &
+tail -f chunked_posttrain.out            # orchestrator progress
+tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
 ```
 
 - Automatically downloads `Sanjin2024/TinyRecursiveModels-ARC-AGI-1/step_155718` (skip with `--skip-download` if already cached).
@@ -265,7 +266,8 @@ uv run python -m scripts.chunked_posttrain \
 - Collects each `submission.json`, copies them to `submissions/`, merges into `submissions/eval2clean_merged_submission.json`, and prints aggregated pass@k (default pass@1/pass@2).
 
 Useful flags:
-- `--skip-datasets`, `--skip-train`, `--skip-merge` to reuse previous artifacts.
+- Don't enable wandb for kaggle.
+- `--skip-download`, `--skip-datasets`, `--skip-train`, `--skip-merge` to reuse previous artifacts.
 - `--extra-override` to pass additional Hydra overrides (repeat flag as needed).
 - `--no-copy-submissions` to leave submissions in their checkpoint folders.
 
