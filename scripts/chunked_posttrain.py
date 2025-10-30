@@ -230,6 +230,10 @@ def run_training(chunk: ChunkConfig, args) -> None:
         f"load_checkpoint={checkpoint_path}",
         f"+run_name={chunk.run_name}",
     ]
+    if args.wandb_project:
+        cmd.append(f"project_name='{args.wandb_project}'")
+    if args.wandb_entity:
+        cmd.append(f"entity='{args.wandb_entity}'")
     for override in args.extra_override:
         cmd.append(override)
 
@@ -353,6 +357,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-copy-submissions", action="store_true")
     parser.add_argument("--overwrite-submissions", action="store_true")
     parser.add_argument("--enable-wandb", action="store_true")
+    parser.add_argument("--wandb-project", default=None)
+    parser.add_argument("--wandb-entity", default=None)
     parser.add_argument("--dry-run", action="store_true")
 
     return parser.parse_args()

@@ -253,7 +253,9 @@ nohup uv run python -m scripts.chunked_posttrain \
   --subset evaluation2clean \
   --chunk-size 38 \
   --enable-wandb \
+  --wandb-project arc-eval2clean \
   --num-aug 1000 \
+  --skip-download \
   > chunked_posttrain.out 2>&1 &
 tail -f chunked_posttrain.out            # orchestrator progress
 tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
@@ -266,10 +268,10 @@ tail -f logs/posttrain_eval2cleanA.log   # per-chunk training log (A/B/C)
 - Collects each `submission.json`, copies them to `submissions/`, merges into `submissions/eval2clean_merged_submission.json`, and prints aggregated pass@k (default pass@1/pass@2).
 
 Useful flags:
-- Don't enable wandb for kaggle.
 - `--skip-download`, `--skip-datasets`, `--skip-train`, `--skip-merge` to reuse previous artifacts.
 - `--extra-override` to pass additional Hydra overrides (repeat flag as needed).
 - `--no-copy-submissions` to leave submissions in their checkpoint folders.
+- `--wandb-project`, `--wandb-entity` to pin all chunk runs under a single W&B project/dashboard.
 
 ### Post-training on TAMA
 ```bash
