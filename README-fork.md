@@ -245,6 +245,29 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## Post-training
+### Chunked Post-training
+`scripts/chunked_posttrain.py` automates the full pipeline: dataset splitting, augmented builds, sequential training, submission collection, and merged pass@k scoring.
+
+```bash
+uv run python -m scripts.chunked_posttrain \
+  --subset evaluation2clean \
+  --chunk-size 38 \
+  --enable-wandb \
+  --num-aug 1000 \
+  --dry-run
+```
+
+- Automatically downloads `Sanjin2024/TinyRecursiveModels-ARC-AGI-1/step_155718` (skip with `--skip-download` if already cached).
+- Splits `kaggle/combined/arc-agi_evaluation2clean_{challenges,solutions}.json` into 38-puzzle chunks (`evaluation2cleanA/B/C` by default) and stores the new JSONs alongside the originals.
+- Builds `data/arc-eval2clean{A,B,C}-aug-1000` with `dataset.build_arc_dataset`.
+- Launches three post-train runs (`posttrain_eval2clean{A,B,C}`) and logs to `logs/<run>.log`.
+- Collects each `submission.json`, copies them to `submissions/`, merges into `submissions/eval2clean_merged_submission.json`, and prints aggregated pass@k (default pass@1/pass@2).
+
+Useful flags:
+- `--skip-datasets`, `--skip-train`, `--skip-merge` to reuse previous artifacts.
+- `--extra-override` to pass additional Hydra overrides (repeat flag as needed).
+- `--no-copy-submissions` to leave submissions in their checkpoint folders.
+
 ### Post-training on TAMA
 ```bash
 uv run python3 -m dataset.build_arc_dataset \
@@ -338,6 +361,50 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
   +run_name=${run_name} > posttrain_single_long.log &
+```
+- **8x Tasks**:
+```bash
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2clean8 \
+  --test-set-name evaluation2clean8 \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_8x"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_8x.log &
+```
+- **38x Tasks**:
+```bash
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2-38 \
+  --test-set-name evaluation2-38 \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_38x"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_38x.log &
 ```
 
 - **Puzz Dropout**:
