@@ -27,7 +27,7 @@ epochs: 12500
 eval_interval: 3125
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
-eval_max_augmentations: 256
+eval_max_augmentations: 512
 halt_max_steps_eval: null
 puzzle_emb_reinit_strategy: "mean"
 

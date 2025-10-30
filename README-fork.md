@@ -24,7 +24,7 @@ export GIT_USER_EMAIL="your@email.com"
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
 
-## Training Details
+## Pre-Training Details
 ### ctd pre-training synth
 ```bash
 uv pip install hf_transfer
@@ -244,7 +244,8 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
-## Post-training on TAMA
+## Post-training
+### Post-training on TAMA
 ```bash
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
@@ -314,7 +315,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```
 
 
-## eval2 dataset on aa1 model
+### eval2 dataset on aa1 model
 - **Download checkpoint:** Start from the published ARC checkpoint (example below) so the adapters can piggyback on the same architecture:
 ```bash
 uv pip install hf_transfer
@@ -324,10 +325,21 @@ hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
 uv run python -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc-eval2-aug-1000 \
-  --subsets evaluation2 \
-  --test-set-name evaluation2 \
+  --subsets evaluation2clean1 \
+  --test-set-name evaluation2clean1 \
   --num-aug 1000
 ```
+- **Single Task**:
+```bash
+run_name="posttrain_single"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_single.log &
+```
+
 - **Puzz Dropout**:
 ```bash
 run_name="posttrain_aa1_aa2e_puzz_drp"
