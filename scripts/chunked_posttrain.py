@@ -231,9 +231,9 @@ def run_training(chunk: ChunkConfig, args) -> None:
         f"+run_name={chunk.run_name}",
     ]
     if args.wandb_project:
-        cmd.append(f"project_name='{args.wandb_project}'")
+        cmd.append(f"+project_name='{args.wandb_project}'")
     if args.wandb_entity:
-        cmd.append(f"entity='{args.wandb_entity}'")
+        cmd.append(f"+entity='{args.wandb_entity}'")
     for override in args.extra_override:
         cmd.append(override)
 
