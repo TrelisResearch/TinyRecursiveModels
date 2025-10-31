@@ -10,7 +10,7 @@ hydra:
 entity: "trelis"
 
 # Data path
-data_paths: ['data/arc-eval2-aug-1000']
+data_paths: null
 data_paths_test: []
 
 load_checkpoint: null
@@ -27,7 +27,7 @@ epochs: 12500
 eval_interval: 3125
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
-eval_max_augmentations: 256
+eval_max_augmentations: 512
 halt_max_steps_eval: null
 puzzle_emb_reinit_strategy: "mean"
 

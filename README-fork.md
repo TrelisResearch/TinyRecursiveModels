@@ -311,6 +311,42 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## Post-training
+### Post-training ablation of pos embs AND 500k models
+```bash
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+**Single emb position**
+```bash
+run_name="posttrain_aa1_1emb"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_aa1_1emb.log &
+```
+**8x emb position**
+**Single emb position**
+```bash
+run_name="posttrain_aa1_8emb"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_len=8 \
+  +run_name=${run_name} > posttrain_aa1_8emb.log &
+```
+
 ### Chunked Post-training
 `scripts/chunked_posttrain.py` automates the full pipeline: dataset splitting, augmented builds, sequential training, submission collection, and merged pass@k scoring.
 
