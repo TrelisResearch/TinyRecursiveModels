@@ -24,6 +24,40 @@ export GIT_USER_EMAIL="your@email.com"
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
 
+## Final Runs
+### 200k epochs on all data
+```bash
+run_name="pretrain_all_200k"
+git switch meta && \
+git pull && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-pretrain-final \
+  --subsets concept tama training2 evaluation2train evaluation2eval \
+  --test-set-name evaluation2eval && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_all_8x \
+  data_paths=['data/arc2-pretrain-final'] \
+  arch=trm \
+  +run_name="${run_name}" > pretrain_all_200k.log &
+```
+### 1M epochs on hard data
+```bash
+run_name="pretrain_hard_1M"
+git switch meta && \
+git pull && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-pretrain-final \
+  --subsets training2hard evaluation2train evaluation2eval \
+  --test-set-name evaluation2eval && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_hard_8x \
+  data_paths=['data/arc2-pretrain-final'] \
+  arch=trm \
+  +run_name="${run_name}" > pretrain_hard_1M.log &
+```
+
 ## Pre-Training Details
 ### High Epochs on High Quality Data
 ```bash

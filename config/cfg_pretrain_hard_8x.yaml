@@ -22,7 +22,7 @@ evaluators:
 # Hyperparams - Training
 global_batch_size: 1536
 
-epochs: 500000
+epochs: 1000000
 eval_interval: 25000
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
