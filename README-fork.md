@@ -57,6 +57,68 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
   arch=trm \
   +run_name="${run_name}" > pretrain_hard_1M.log &
 ```
+### Post-training testing on L4s
+```bash
+uv pip install hf_transfer
+git switch meta && \
+git pull && \
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2-aug-1000 \
+  --subsets evaluation2 \
+  --test-set-name evaluation2 \
+  --num-aug 1000
+```
+**L4 Testing**
+```bash
+run_name="posttrain_L4_test"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2-aug-1000']" \
+  data_paths_test="['data/arc-eval2-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_L4_test.log &
+```
+**H100 Testing**
+```bash
+uv pip install hf_transfer
+git switch meta && \
+git pull && \
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-theval2clean-aug-1000 \
+  --subsets traininghard evaluation2clean \
+  --test-set-name evaluation2clean \
+  --num-aug 1000
+```
+**Standard LR**
+```bash
+run_name="posttrain_H100_5em5"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-theval2clean-aug-1000']" \
+  data_paths_test="['data/arc-theval2clean-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  +run_name=${run_name} > posttrain_H100_5em5.log &
+```
+**2x LR**
+```bash
+run_name="posttrain_H100_1em5"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-theval2clean-aug-1000']" \
+  data_paths_test="['data/arc-theval2clean-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  lr=1e-4 \
+  puzzle_emb_lr=1e-2 \
+  +run_name=${run_name} > posttrain_H100_1em4.log &
+```
 
 ## Pre-Training Details
 ### High Epochs on High Quality Data
