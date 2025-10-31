@@ -311,7 +311,125 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 Utility script at [./utils/push_to_hf.py](./utils/push_to_hf.py)
 
 ## Post-training
-### Post-training ablation of pos embs AND 500k models
+### Post-training ablation of pos embs AND 500k models on evaluation 2C (NOISELESS posttraining)
+```bash
+uv pip install hf_transfer
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+**8x emb position**
+```bash
+run_name="posttrain_aa1_8emb_nlpt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_len=8 \
+  arch=trm_noiseless \
+  +run_name=${run_name} > posttrain_aa1_8emb_nlpt.log &
+```
+**aa2 model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_aa2_8emb_nlpt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_723914" \
+  arch.puzzle_emb_len=8 \
+  arch=trm_noiseless \
+  +run_name=${run_name} > posttrain_aa2_8emb_nlpt.log &
+```
+**Noised 500k model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_87633_nlpt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  arch=trm_noiseless \
+  +run_name=${run_name} > posttrain_500k_noised_step_87633_nlpt.log &
+```
+**Noiseless 500k model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noiseless \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noiseless_step_87633_nlpt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  arch=trm_noiseless \
+  +run_name=${run_name} > posttrain_500k_noiseless_step_87633_nlpt.log &
+```
+**Noised 500k model - step_175266**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_175266 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_175266_nlpt"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_175266" \
+  arch=trm_noiseless \
+  +run_name=${run_name} > posttrain_500k_noised_step_175266_nlpt.log &
+```
+### Post-training ablation of pos embs AND 500k models on evaluation 2C (noised posttraining)
 ```bash
 uv pip install hf_transfer
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
@@ -335,7 +453,6 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > posttrain_aa1_1emb.log &
 ```
 **8x emb position**
-**Single emb position**
 ```bash
 run_name="posttrain_aa1_8emb"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
@@ -346,7 +463,236 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   arch.puzzle_emb_len=8 \
   +run_name=${run_name} > posttrain_aa1_8emb.log &
 ```
+**aa2 model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_aa2_8emb"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_723914" \
+  arch.puzzle_emb_len=8 \
+  +run_name=${run_name} > posttrain_aa2_8emb.log &
+```
+**Noised 500k model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_87633"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  +run_name=${run_name} > posttrain_500k_noised_step_87633.log &
+```
+**Noiseless 500k model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noiseless \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noiseless_step_87633"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  +run_name=${run_name} > posttrain_500k_noiseless_step_87633.log &
+```
+**Noised 500k model - step_175266**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_175266 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_175266"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_175266" \
+  +run_name=${run_name} > posttrain_500k_noised_step_175266.log &
+```
 
+**Noised 500k model - step_175266 - double epochs**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_175266 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_175266_2xe"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_175266" \
+  epochs=25000 \
+  +run_name=${run_name} > posttrain_500k_noised_step_175266_2xe.log &
+```
+**Noised 500k model - step_87633 - double epochs**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noised_step_87633_2xe"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  epochs=25000 \
+  +run_name=${run_name} > posttrain_500k_noised_step_87633_2xe.log &
+```
+**Noiseless 500k model - 2x epochs**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noiseless \
+  step_87633 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2C-aug-1000 \
+  --subsets evaluation2C \
+  --test-set-name evaluation2C \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noiseless_step_87633_2x"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2C-aug-1000']" \
+  data_paths_test="['data/arc-eval2C-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  epochs=25000 \
+  +run_name=${run_name} > posttrain_500k_noiseless_step_87633_2x.log &
+```
+
+### Evaluation 2B Comparison
+**Noised 500k model - step_175266**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noised \
+  step_175266 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2B-aug-1000 \
+  --subsets evaluation2B \
+  --test-set-name evaluation2B \
+  --num-aug 1000
+```
+
+```bash
+run_name="posttrain_500k_noised_step_175266"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2B-aug-1000']" \
+  data_paths_test="['data/arc-eval2B-aug-1000']" \
+  load_checkpoint="pretrained/step_175266" \
+  +run_name=${run_name} > posttrain_500k_noised_step_175266.log &
+```
+**Noiseless 500k model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-500k-noiseless \
+  step_175266 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2B-aug-1000 \
+  --subsets evaluation2B \
+  --test-set-name evaluation2B \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_500k_noiseless_step_87633"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2B-aug-1000']" \
+  data_paths_test="['data/arc-eval2B-aug-1000']" \
+  load_checkpoint="pretrained/step_87633" \
+  +run_name=${run_name} > posttrain_500k_noiseless_step_87633.log &
+```
+
+**aa2 model**
+```bash
+uv pip install hf_transfer
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-eval2B-aug-1000 \
+  --subsets evaluation2B \
+  --test-set-name evaluation2B \
+  --num-aug 1000
+```
+```bash
+run_name="posttrain_aa2_8emb"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-eval2B-aug-1000']" \
+  data_paths_test="['data/arc-eval2B-aug-1000']" \
+  load_checkpoint="pretrained/step_723914" \
+  arch.puzzle_emb_len=8 \
+  +run_name=${run_name} > posttrain_aa2_8emb.log &
+```
 ### Chunked Post-training
 `scripts/chunked_posttrain.py` automates the full pipeline: dataset splitting, augmented builds, sequential training, submission collection, and merged pass@k scoring.
 
