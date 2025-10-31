@@ -59,7 +59,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
 ```
 ### Post-training testing on L4s
 ```bash
-uv pip install hf_transfer
+uv pip install hf_transfer && \
 git switch meta && \
 git pull && \
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
@@ -84,7 +84,8 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
 ```
 **H100 Testing**
 ```bash
-uv pip install hf_transfer
+cd ../workspace/TinyRecursiveModels-private && \
+uv pip install hf_transfer && \
 git switch meta && \
 git pull && \
 hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
