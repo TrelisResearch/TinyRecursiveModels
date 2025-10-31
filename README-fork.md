@@ -80,8 +80,15 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-eval2-aug-1000']" \
   data_paths_test="['data/arc-eval2-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_len=16 \
   +run_name=${run_name} > posttrain_L4_test.log &
 ```
+and add this to measure evaluation:
+```bash
+  eval_interval=50 \
+  eval_max_augmentations=64 \
+```
+
 **H100 Testing**
 ```bash
 cd ../workspace/TinyRecursiveModels-private && \
@@ -106,11 +113,12 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   data_paths="['data/arc-theval2clean-aug-1000']" \
   data_paths_test="['data/arc-theval2clean-aug-1000']" \
   load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_len=16 \
   +run_name=${run_name} > posttrain_H100_5em5.log &
 ```
 **2x LR**
 ```bash
-run_name="posttrain_H100_1em5"
+run_name="posttrain_H100_1em4"
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
   --config-name cfg_posttrain \
   data_paths="['data/arc-theval2clean-aug-1000']" \
@@ -118,6 +126,7 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   load_checkpoint="pretrained/step_155718" \
   lr=1e-4 \
   puzzle_emb_lr=1e-2 \
+  arch.puzzle_emb_len=16 \
   +run_name=${run_name} > posttrain_H100_1em4.log &
 ```
 
