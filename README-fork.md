@@ -49,7 +49,7 @@ git pull && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-pretrain-final \
-  --subsets training2hard evaluation2train evaluation2eval \
+  --subsets traininghard evaluation2train evaluation2eval \
   --test-set-name evaluation2eval && \
 PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain_hard_8x \
