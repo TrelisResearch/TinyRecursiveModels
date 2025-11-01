@@ -130,6 +130,74 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   +run_name=${run_name} > posttrain_H100_1em4.log &
 ```
 
+### Post-training at the midpoints
+```bash
+cd ../workspace/TinyRecursiveModels-private && \
+uv pip install hf_transfer && \
+git switch meta && \
+git pull && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-evaluation2test-aug-1000 \
+  --subsets evaluation2test \
+  --test-set-name evaluation2test \
+  --num-aug 1000
+```
+**all 200k midpoint**
+```bash
+run_name="posttrain_all_200k_midpoint"
+hf download Trelis/TRM-ARC-AGI-II-all-200k \
+  step_307898 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_307898" \
+  +run_name=${run_name} > posttrain_all_200k_midpoint.log &
+```
+**hard 1M midpoint**
+```bash
+run_name="posttrain_hard_1M_midpoint"
+hf download Trelis/TRM-ARC-AGI-II-hard-1M \
+  step_280350 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_280350" \
+  +run_name=${run_name} > posttrain_hard_1M_midpoint.log &
+```
+**aa1 model**
+```bash
+run_name="posttrain_aa1"
+hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
+  step_155718 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_155718" \
+  arch.puzzle_emb_len=16 \
+  +run_name=${run_name} > posttrain_aa1.log &
+```
+**aa2 model**
+```bash
+run_name="posttrain_aa2"
+hf download Trelis/TRM-ARC-AGI-II \
+  step_723914 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_723914" \
+  arch.puzzle_emb_len=16 \
+  +run_name=${run_name} > posttrain_aa2.log &
+```
+
 ## Pre-Training Details
 ### High Epochs on High Quality Data
 ```bash
