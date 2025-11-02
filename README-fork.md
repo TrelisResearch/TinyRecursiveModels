@@ -197,6 +197,84 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_
   arch.puzzle_emb_len=16 \
   +run_name=${run_name} > posttrain_aa2.log &
 ```
+### Post-training at the midpoints, evening run
+```bash
+cd ../workspace/TinyRecursiveModels-private && \
+uv pip install hf_transfer && \
+git switch meta && \
+git pull && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-evaluation2test-aug-1000 \
+  --subsets evaluation2test \
+  --test-set-name evaluation2test \
+  --num-aug 1000
+```
+**all 200k**
+```bash
+run_name="posttrain_all_200k_midpoint_evening"
+hf download Trelis/TRM-ARC-AGI-II-all-200k \
+  step_384872 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_384872" \
+  +run_name=${run_name} > posttrain_all_200k_midpoint_evening.log &
+```
+**hard 1M**
+```bash
+run_name="posttrain_hard_1M_midpoint_evening"
+hf download Trelis/TRM-ARC-AGI-II-hard-1M \
+  step_358225 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_358225" \
+  +run_name=${run_name} > posttrain_hard_1M_midpoint_evening.log &
+```
+### Post-training - morning run
+```bash
+cd ../workspace/TinyRecursiveModels-private && \
+uv pip install hf_transfer && \
+git switch meta && \
+git pull && \
+uv run python -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc-evaluation2test-aug-1000 \
+  --subsets evaluation2test \
+  --test-set-name evaluation2test \
+  --num-aug 1000
+```
+**all 200k**
+```bash
+run_name="posttrain_all_200k_morning"
+hf download Trelis/TRM-ARC-AGI-II-all-200k \
+  step_615792 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_615792" \
+  +run_name=${run_name} > posttrain_all_200k_morning.log &
+```
+**hard 1M**
+```bash
+run_name="posttrain_hard_1M_morning"
+hf download Trelis/TRM-ARC-AGI-II-hard-1M \
+  step_591850 \
+  --local-dir pretrained && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 pretrain.py \
+  --config-name cfg_posttrain \
+  data_paths="['data/arc-evaluation2test-aug-1000']" \
+  data_paths_test="['data/arc-evaluation2test-aug-1000']" \
+  load_checkpoint="pretrained/step_591850" \
+  +run_name=${run_name} > posttrain_hard_1M_morning.log &
+```
 
 ## Pre-Training Details
 ### High Epochs on High Quality Data
