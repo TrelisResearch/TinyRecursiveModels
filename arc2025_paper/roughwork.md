@@ -7,6 +7,11 @@ Wang, G., Li, J., Sun, Y., Chen, X., Liu, C., Wu, Y., Lu, M., Song, S., & Abbasi
 
 Simon Strandgaard's tama dataset: https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama
 
+### BibTeX keys ready in `references.bib`
+- `\cite{JolicoeurMartineau2025TinyRecursive}`
+- `\cite{Wang2025HierarchicalReasoning}`
+- `\cite{StrandgaardTamaDataset}`
+
 
 ## Github repo
 original trm paper: https://github.com/SamsungSAILMontreal/TinyRecursiveModels

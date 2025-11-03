@@ -4,7 +4,9 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{times}
+\usepackage[numbers]{natbib}
 \usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
 
 \title{Test-time Adaptation of Tiny Recursive Models}
 \author{Ronan McGovern\\Trelis LTD\\\texttt{Trelis.com}}
@@ -16,7 +18,7 @@
 
 \section{Introduction}
 
-subsection - compute requirements
+\subsection{compute requirements}
 
 The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. As a reference point, TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, such pretraining takes approximately 750k gradient steps, with a global batch size of 768, while the competition runtime allows for only about 15k gradient steps at a batch size of 392, given that one must also allow time for inference/evaluation.
 
@@ -24,46 +26,58 @@ The premise of Test-time adaptation is that, by conducting pre-training prior to
 
 \section{Methods}
 
-A recursive transformer model was pre-trained on ARC AGI II training tasks in close accordance to the Tiny Recursive Model paper. During competition submissions, this pre-trained model was fully fine-tuned on the train example pairs of the test tasks. This fine-tuned model was used to predict test example outputs, using a majority voting method.
+A recursive transformer model was pre-trained on ARC AGI II training tasks in close accordance to the Tiny Recursive Model paper \cite{JolicoeurMartineau2025TinyRecursive}. During competition submissions, this pre-trained model was fully fine-tuned on the train example pairs of the test tasks. This fine-tuned model was used to predict test example outputs, using a majority voting method.
 
-subsection - pretraining
+\subsection{Pre-training}
+Three models were pre-trained. A first model model was trained almost exactly in line with the original TRM paper. A second model was pretrained with an expanded pre-training dataset and for double the original number of epochs. A third model was then pre-trained with a smaller dataset, filtered for tasks matching ARC AGI II public evaluation split difficulty.
 
-1. Paper Replication.
+\subsubsection{Original Paper Replication}
 
-A TRM was trained in close alignment with the original paper, but with only 4 lower reasoning cycles used instead of 6 reported in the paper. This deviation was unintentional and resulted from a commit in the TRM Github repository using that same value. Interestingly, other ablations by Xin Gao (reference here) and Konstantin Schuerholt also use this value of 4.
+A TRM was trained in close alignment with the original paper, but with only 4 lower reasoning cycles instead of 6 reported in the paper. This deviation was unintentional and resulted from a commit in the TRM Github repository using that same value. Interestingly, other ablations by Xin Gao (reference here) and Konstantin Schuerholt also use this value of 4.
 
-The data mix employed, as in the original paper, was:
-- ARC AGI II Training split [1000 tasks]: train + test example pairs
-- Concept ARC split [160 tasks]: train + test example pairs
-- ARC AGI II Evaluation split [120 tasks]: train example pairs only (test used for evaluation)
+The data mix matched that of the original paper and included:
+\begin{itemize}
+    \item ARC AGI II Training split [1000 tasks]: train + test example pairs
+    \item Concept ARC split [160 tasks]: train + test example pairs
+    \item ARC AGI II Evaluation split [120 tasks]: train example pairs only (test used for evaluation)
+\end{itemize}
 
-2. Extended Data for 200k Epochs. 
+\subsubsection{Extended Data for 200k Epochs}
+
 Following the heuristic that neural nets often improve in performance with longer pre-training, a second model was pre-trained for double the original number of epochs.
 
 Following the heuristic of more higher in-distribution data helping the performance of neural nets, the dataset was expanded in two ways:
-a. Inclusion of evaluation split test example pairs: The test example pairs from 100 of the 120 public ARC AGI II evaluation split were included in pre-training. Of the remaining 20 tasks, ten were used as an evaluation split, and ten were used as a post-training test split. Concretely, train example pairs from 110 tasks were included in pre-training and test example pairs from 100 tasks were included in pre-training. Test example pairs from 10 tasks were withheld for evaluation during pre-training, while train AND test example pairs from 10 tasks were withheld entirely for use in post-training.
-b. Inclusion of 40 tasks from Simon Strandgaard's "tama" dataset (insert reference). These human-reviewed tasks cover concepts typical in ARC challenges and are of a difficulty somewhere between ARC AGI I and ARC AGI II. The hope for includiing this data was to broaden and enhance the pre-training dataset.
+\begin{enumerate}
+    \item Inclusion of evaluation split test example pairs: The test example pairs from 100 of the 120 public ARC AGI II evaluation split were included in pre-training. Of the remaining 20 tasks, ten were used as an evaluation split, and ten were used as a post-training test split. Concretely, train example pairs from 110 tasks were included in pre-training and test example pairs from 100 tasks were included in pre-training. Test example pairs from 10 tasks were withheld for evaluation during pre-training, while train AND test example pairs from 10 tasks were withheld entirely for use in post-training.
+    \item Inclusion of 40 tasks from Simon Strandgaard's "tama" dataset \cite{StrandgaardTamaDataset}. These human-reviewed tasks cover concepts typical in ARC challenges and are of a difficulty somewhere between ARC AGI I and ARC AGI II. The hope for includiing this data was to broaden and enhance the pre-training dataset.
+\end{enumerate}
 
 In sum, this meant pre-training on:
-- ARC AGI II Training split [1000 tasks]: train + test example pairs
-- Concept ARC split [160 tasks]: train + test example pairs
-- ARC AGI II Evaluation split [110 tasks]: train example pairs from all 110 tasks and test example pairs from 100 tasks (the other ten serve as evaluation during pre-training)
-- tama [40 tasks]: train + test example pairs
+\begin{itemize}
+    \item ARC AGI II Training split [1000 tasks]: train + test example pairs
+    \item Concept ARC split [160 tasks]: train + test example pairs
+    \item ARC AGI II Evaluation split [110 tasks]: train example pairs from all 110 tasks and test example pairs from 100 tasks (the other ten serve as evaluation during pre-training)
+    \item tama [40 tasks]: train + test example pairs
+\end{itemize}
 
 While there is the potential advantage of a higher quality, more in-distribution and larger pre-training dataset, there is a large trade-off in being able to assess performance with evaluation and test hold-out sets of only 10 tasks each, particularly when we are trying to assess performance with a granularity of one percent and where the anticipated score is in the region of 1-10 percent.
 
-3. Filtered Hard Data + Extended Epochs. 
+\subsubsection{Filtered Hard Data + Extended Epochs}
 
 This third pre-trained variant aimed to test the heuristic that it can be better to train neural nets on a smaller amount of higher quality data for more epochs than on more mixed-quality data for fewer epochs. The same model and hyperparameters were used but training on 110 tasks from the ARC AGI II evaluation split and 120 hard tasks from the ARC AGI II training split. Training tasks were determined to be hard based on the ability of GPT-5-mini to write a python program that successfully solved all train and test example pairs. Specifically, any task for which GPT-5-mini could write a correct program, given approximately eight attempts, was filtered out. This left 137 remaining ARC AGI II training tasks, from which 120 were selected as a traininghard split. This filtering is somewhat arbitrary and skewed both because it filters based on a) python programming performance and b) LLM, not human, performance. The method was used because of prior unreported work attempting to solve ARC tasks by writing python programs. The choice of GPT-5-mini as a model was made because it was capable of solving only a few ARC AGI II evaluation tasks by writing python programs. As such, if a task can be solved through python program writing by GPT-5-mini this correlates with the task being too easy for ARC AGI II level tasks. And, the motivation for this "hard" dataset split was to have tasks more representative of the semi-private evaluation set on which performance is ultimately graded for the 2025 competition.
 
 In sum, this meant pre-training on 230 tasks:
-- ARC AGI II Training split, filtered with GPT-5-mini program writing for "hard" tasks [120 tasks]: train + test example pairs
-- ARC AGI II Evaluation split [110 tasks]: train example pairs from all 110 tasks and test example pairs from 100 tasks (the other ten serve as evaluation during pre-training)
+\begin{itemize}
+    \item ARC AGI II Training split, filtered with GPT-5-mini program writing for "hard" tasks [120 tasks]: train + test example pairs
+    \item ARC AGI II Evaluation split [110 tasks]: train example pairs from all 110 tasks and test example pairs from 100 tasks (the other ten serve as evaluation during pre-training)
+\end{itemize}
 
-subsection - post-training
--- full fine-tuning
--- lora 
--- freezing of the trunk
+\subsection{Post-training}
+\begin{itemize}
+    \item full fine-tuning
+    \item lora
+    \item freezing of the trunk
+\end{itemize}
 
 \section{Results}
 
@@ -89,6 +103,9 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 \section{Acknowledgements}
 
 Runpod for 15kUSD of compute, lambda labs for 1k. Lewis Hemems for collaboration on ARC Prize Research, and Jack Boylan for assistance in running the pre-training replication.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
 
 \clearpage
 \onecolumn
