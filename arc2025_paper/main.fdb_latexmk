@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1762171234.84202 "main.aux" "main.bbl" "main" 1762171360.60625 2
+["bibtex main"] 1762175436.66906 "main.aux" "main.bbl" "main" 1762175437.27813 0
   "./references.bib" 1762168769.58838 1147 e714fc479ff0fa3a8bef75e5c6e17960 ""
   "/usr/local/texlive/2025/texmf-dist/bibtex/bst/natbib/plainnat.bst" 1233624470 26816 ffe5423d2019860bad9f54bc402fac15 ""
-  "main.aux" 1762171360.44643 4317 b3cdea54c7022a17f1ebb28bf88b763b "pdflatex"
+  "main.aux" 1762175437.09477 5585 4798daaf02e51465507b469cf0fe9e34 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1762171360.11691 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762171360.60634 2
-  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762171359.4067 14713 b5cb3fc0b9b33f618df02b4f69cb35ed ""
+["pdflatex"] 1762175436.74554 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762175437.27833 0
+  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762175436.00286 22546 6411966294a7502efbfbe1e27be8c1ac ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/adobe/courier/pcrr7t.tfm" 1136768653 960 379cc0019370a9e0208a0a3f949f847a ""
@@ -38,9 +38,6 @@
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmsy10.tfm" 1136768653 1124 6c73e740cf17375f03eec0ee63599741 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmsy6.tfm" 1136768653 1116 933a60c408fc0a863a92debe84b2d294 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmsy8.tfm" 1136768653 1120 8b7d695260f3cff42e636090a8002094 ""
-  "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb" 1248133631 36299 5f9df58c2139e7edcf37c8fca4bd384d ""
-  "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb" 1248133631 35469 70d41d2b9ea31d5d813066df7c99281c ""
-  "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb" 1248133631 32569 5e5ddc8df908dea60932f3c484a54c0d ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb" 1136849748 45758 19968a0990191524e34e1994d4a31cb6 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/times/utmb8a.pfb" 1136849748 44729 811d6c62865936705a31c797a1d5dada ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/times/utmr8a.pfb" 1136849748 46026 6dab18b61c907687b520c72847215a68 ""
@@ -109,10 +106,10 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1762163224 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1762163168 3345731 efcd791164de81e332402906c1a2c7ed ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "main.aux" 1762171360.44643 4317 b3cdea54c7022a17f1ebb28bf88b763b "pdflatex"
-  "main.bbl" 1762171234.91954 0 d41d8cd98f00b204e9800998ecf8427e "bibtex main"
-  "main.out" 1762171360.44701 4720 d92046f97d87f05fbcb5007bd64d115a "pdflatex"
-  "main.tex" 1762171359.4067 14713 b5cb3fc0b9b33f618df02b4f69cb35ed ""
+  "main.aux" 1762175437.09477 5585 4798daaf02e51465507b469cf0fe9e34 "pdflatex"
+  "main.bbl" 1762175436.74375 819 76cd45afd6d987ad82b375794c839130 "bibtex main"
+  "main.out" 1762175437.09536 7528 7d5658f9c67343145d859cc5d63c0387 "pdflatex"
+  "main.tex" 1762175436.00286 22546 6411966294a7502efbfbe1e27be8c1ac ""
   (generated)
   "main.aux"
   "main.log"
