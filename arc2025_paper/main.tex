@@ -162,33 +162,57 @@ All results for the extended training runs are available at \url{https://wandb.a
 
 \begin{figure}[t]
     \centering
-    \fbox{\parbox{0.95\columnwidth}{Placeholder for pass@2 and pass@1000 plot.}}
-    \caption{Planned figure: ARC evaluation pass@2 and pass@1000 accuracies for the extended pre-training runs.}
+    \includegraphics[width=\columnwidth]{figures/extended_pass_accuracy.pdf}
+    \caption{ARC evaluation pass@2 and pass@1000 accuracies for the \texttt{all-200k} and \texttt{hard-1M} extended pre-training runs. Solid lines denote \texttt{all-200k}, dashed lines \texttt{hard-1M}.}
     \label{fig:extended_pass_accuracy}
 \end{figure}
 
 \begin{figure}[t]
     \centering
-    \fbox{\parbox{0.95\columnwidth}{Placeholder for evaluation and train exact accuracy plot.}}
-    \caption{Planned figure: evaluation and train exact accuracies throughout extended pre-training.}
+    \includegraphics[width=\columnwidth]{figures/extended_exact_accuracy.pdf}
+    \caption{Evaluation and train exact accuracies across extended pre-training. Color encodes evaluation versus train accuracy while line style differentiates the \texttt{all-200k} and \texttt{hard-1M} runs.}
     \label{fig:extended_exact_accuracy}
 \end{figure}
 
 \begin{figure}[t]
     \centering
-    \fbox{\parbox{0.95\columnwidth}{Placeholder for embedding cosine within-task plot.}}
-    \caption{Planned figure: train and evaluation embedding cosine similarity within task variants.}
+    \includegraphics[width=\columnwidth]{figures/embedding_cosine_within.pdf}
+    \caption{Embedding cosine similarity among augmented variants of the same task during extended pre-training.}
     \label{fig:embedding_cosine_within}
 \end{figure}
 
 \begin{figure}[t]
     \centering
-    \fbox{\parbox{0.95\columnwidth}{Placeholder for embedding cosine across tasks plot.}}
-    \caption{Planned figure: train and evaluation embedding cosine similarity across base tasks.}
+    \includegraphics[width=\columnwidth]{figures/embedding_cosine_across.pdf}
+    \caption{Embedding cosine similarity across base tasks for the extended pre-training runs.}
     \label{fig:embedding_cosine_across}
 \end{figure}
 
 \subsection{Post-Training}
+\subsubsection{Post-training of the ARC AGI I Pre-trained Model}
+Here are results from post training the ARC AGI I Pre-trained Model from Xin Gao (reference here).
+
+data source: https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch
+lora: posttrain_aa1_aa2e_lora
+embedding followed by fine-tuning: posttrain_aa1_aa2e_feq
+embeddings only: posttrain_aa1_aa2e_fe
+embeddings only for one quarter of steps: posttrain_aa1_aa2e_feq
+embeddings only for one half of steps: posttrain_aa1_aa2e_feh
+full fine-tuning: posttrain_aa1_aa2e
+(and we should only show up to roughly 6k training steps here).
+
+\subsubsection{Post-training of ARC AGI II pre-trained models during competition submissions}
+Simulation of ARC AGI II pre-trained models is uninformative either because the models have been pre-trained on the public evaluation set OR the ten withheld tasks are too small in number to provide a meaningful signal. Results for post-training on 10 withheld tasks are reported here (https://wandb.ai/trelis/Arc-evaluation2test-aug-1000-ACT-torch) nonetheless. Pass@2 performance - after posttraining - on the held out ten tasks is zero for all pretrained models.
+
+Three pre-trained models were submitted to the competition environment for post-training. All were post-trained with the settings described in the methods section, except model pre-trained almost exactly like the TRM paper was post-trained for 12500 epochs, while the other two were post-trained for 15000 epochs. (Total epochs were extended later in the competition when there was confidence there was sufficient run time to do so without hitting the 12-hour limit and timing out).
+
+(make the below a table)
+Pretrained Model | semi-private eval score
+TRM Paper Replication | 6.67%
+Expanded data, 200k epochs | 4.25%
+Filtered hard data, 1M epochs | 1.27%
+
+Note that there is a high level of variance to be expected even when submitting the same approach
 
 
 \section{Discussion and Further Ablations}
