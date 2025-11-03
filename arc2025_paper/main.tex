@@ -20,7 +20,7 @@
 
 \subsection{compute requirements}
 
-The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. As a reference point, TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, such pretraining takes approximately 750k gradient steps, with a global batch size of 768, while the competition runtime allows for only about 15k gradient steps at a batch size of 392, given that one must also allow time for inference/evaluation.
+The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. As a reference point, TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, such pretraining takes approximately 750k optimizer steps, with a global batch size of 768, while the competition runtime allows for only about 15k optimizer steps at a batch size of 392, given that one must also allow time for inference/evaluation.
 
 The premise of Test-time adaptation is that, by conducting pre-training prior to competition submissions, one can achieve better performance with fine-tuning than one could conducting pre-training from scratch.
 
@@ -31,7 +31,7 @@ A recursive transformer model was pre-trained on ARC AGI II training tasks in cl
 \subsection{Pre-training}
 Three models were pre-trained. A first model model was trained almost exactly in line with the original TRM paper. A second model was pretrained with an expanded pre-training dataset and for double the original number of epochs. A third model was then pre-trained with a smaller dataset, filtered for tasks matching ARC AGI II public evaluation split difficulty.
 
-\subsubsection{Original Paper Replication}
+\subsubsection{Original Paper Replication - 100k epochs}
 
 A TRM was trained in close alignment with the original paper, but with only 4 lower reasoning cycles instead of 6 reported in the paper. This deviation was unintentional and resulted from a commit in the TRM Github repository using that same value. Interestingly, other ablations by Xin Gao (reference here) and Konstantin Schuerholt also use this value of 4.
 
@@ -62,9 +62,9 @@ In sum, this meant pre-training on:
 
 While there is the potential advantage of a higher quality, more in-distribution and larger pre-training dataset, there is a large trade-off in being able to assess performance with evaluation and test hold-out sets of only 10 tasks each, particularly when we are trying to assess performance with a granularity of one percent and where the anticipated score is in the region of 1-10 percent.
 
-\subsubsection{Filtered Hard Data + Extended Epochs}
+\subsubsection{Filtered Hard Data for 500k Epochs}
 
-This third pre-trained variant aimed to test the heuristic that it can be better to train neural nets on a smaller amount of higher quality data for more epochs than on more mixed-quality data for fewer epochs. The same model and hyperparameters were used but training on 110 tasks from the ARC AGI II evaluation split and 120 hard tasks from the ARC AGI II training split. Training tasks were determined to be hard based on the ability of GPT-5-mini to write a python program that successfully solved all train and test example pairs. Specifically, any task for which GPT-5-mini could write a correct program, given approximately eight attempts, was filtered out. This left 137 remaining ARC AGI II training tasks, from which 120 were selected as a traininghard split. This filtering is somewhat arbitrary and skewed both because it filters based on a) python programming performance and b) LLM, not human, performance. The method was used because of prior unreported work attempting to solve ARC tasks by writing python programs. The choice of GPT-5-mini as a model was made because it was capable of solving only a few ARC AGI II evaluation tasks by writing python programs. As such, if a task can be solved through python program writing by GPT-5-mini this correlates with the task being too easy for ARC AGI II level tasks. And, the motivation for this "hard" dataset split was to have tasks more representative of the semi-private evaluation set on which performance is ultimately graded for the 2025 competition.
+This third pre-trained variant aimed to test the heuristic that it can be better to train neural nets on a smaller amount of higher quality data for more epochs than on more mixed-quality data for fewer epochs.The same model and hyperparameters were used but training on 110 tasks from the ARC AGI II evaluation split and 120 hard tasks from the ARC AGI II training split. Training tasks were determined to be hard based on the ability of GPT-5-mini to write a python program that successfully solved all train and test example pairs. Specifically, any task for which GPT-5-mini could write a correct program, given approximately eight attempts, was filtered out. This left 137 remaining ARC AGI II training tasks, from which 120 were selected as a traininghard split. This filtering is somewhat arbitrary and skewed both because it filters based on a) python programming performance and b) LLM, not human, performance. The method was used because of prior unreported work attempting to solve ARC tasks by writing python programs. The choice of GPT-5-mini as a model was made because it was capable of solving only a few ARC AGI II evaluation tasks by writing python programs. As such, if a task can be solved through python program writing by GPT-5-mini this correlates with the task being too easy for ARC AGI II level tasks. And, the motivation for this "hard" dataset split was to have tasks more representative of the semi-private evaluation set on which performance is ultimately graded for the 2025 competition.
 
 In sum, this meant pre-training on 230 tasks:
 \begin{itemize}
@@ -73,21 +73,55 @@ In sum, this meant pre-training on 230 tasks:
 \end{itemize}
 
 \subsection{Post-training}
-\begin{itemize}
-    \item full fine-tuning
-    \item lora
-    \item freezing of the trunk
-\end{itemize}
+Post-training is done at competition time OR in a manner to simulate competition time training using a held out test set.
+
+Four approaches to post-training were conducted:
+1. Post-training from scratch. A null hypothesis that is no different than training from scratch, albeit with the limited level of competition-time compute available.
+2. Full-fine tuning of a pretrained model.
+3. Fine-tuning of embeddings only.
+4. Full-fine tuning of a pretrained model, training only embeddings for the first quarter of optimizer steps.
+5. LoRA fine-tuning of a pretrained model.
+
+\subsubsection{Post-training from scratch.}
+
+\subsubsection{Fine-tuning of embeddings only.}
+
+\subsubsection{Fine-tuning of embeddings and then full-finetuning}
+
+\subsubsection{LoRA fine-tuning}
+
+
 
 \section{Results}
 
-subsection pretraining
+\subsection{Pre-Training}
 
 
+\subsection{Post-Training}
 
 
-\section{Discussion}
+\section{Discussion and Further Ablations}
 
+\subsection{}
+
+\subsection{On the use of augmentation-specific task embeddings}
+Both HRM and TRM assign a unique embedding not just to each task, but to every augmented variant (flips, rotations, re-colours) of each task. From the model's perspective, each task variant is an entirely separate task. The model may or may not learn that these tasks are related.
+
+It is interesting to ask whether:
+a) the model does learn that variants of the same task are related.
+b) it would be more efficient to use the same task_id/embedding for all variants of a given task OR whether treating variants as independent tasks provides the model with some useful form of regularisation/generality during pre-training.
+
+As a means of partially addressing a), one might look at the cosine of the angle between task embedddings for i) variants of the same task and ii) between the base/original/unvaried form of different tasks. If the TRM does indeed learn to encoded task variants similarly, perhaps one should expect a rise in the value cosine between embeddings during pre- and post-training. These cosine measures were charted during training of the second and third pre-trained models, and it was found that:
+1. While the cosine does rise away from one, it remains low, suggesting that the model may not meaningfully recognise that variants are related.
+2. The cosine of the angle between unvaried base tasks also rises but remains low. This is suggestive of there being little
+
+\subsection{On the benefits and need for pre-training}
+If post training requires fewer optimizer steps than training from scratch - to reach the same performance - then clearly there is meaningful inter-task learning OR at least there are shared concepts involved in training TRM.
+
+The effect can also be understood by pretraining on a single task versus 8 versus 120 tasks on a model of the same size. While it appears possible to achieve similar performance when training on a task individually, or combined with other tasks, it is more efficient - again for a model of fixed size - to jointly train on multiple tasks. Said differently, one can reach the same performance with less compute if one jointly trains on multiple tasks. As such, there appears to be joint concepts to be learned. It is possible of course that much of this joint learning involves primitive concepts relating to grid sizes and colours, as opposed to transformations themselves.
+
+\subsection{Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}
+...
 
 \subsection{On the distribution of ARC AGI II tasks}
 A major challenge in ARC AGI II is that there is little public data that is clearly in the distribution of the eventual ARC AGI II semi-private dataset. It is known that any approach scores remarkably similarly on the ARC AGI II public evaluation set and on the ARC AGI II semi-private (and likely private?) dataset. This means that those datasets are closely in-distribution. By contrast, the ARC AGI II training dataset (and the hard split) appears not to be in distribution as scores do not correlate closely with ARC AGI II evaluation sets.
@@ -98,11 +132,13 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 - Statistical power, already small at just 120 tasks, is even smaller when one takes a subsplit
 - Model performance is sensitive to the amount of data that must be encoded. For the same model size, one cannot directly compare the performance pre or post training on 120 tasks versus 60 tasks.
 
+\section{Future Work}
+
 \section{Conclusion}
 
 \section{Acknowledgements}
 
-Runpod for 15kUSD of compute, lambda labs for 1k. Lewis Hemems for collaboration on ARC Prize Research, and Jack Boylan for assistance in running the pre-training replication.
+This work was supported by Runpod, which provided \$15k of compute, and by Lambda Labs, which provided \$1k of compute. Thanks to Lewis Hemens for collaboration on ARC Prize research and Jack Boylan for assistance in running the pre-training replication.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
