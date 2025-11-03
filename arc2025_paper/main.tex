@@ -19,11 +19,18 @@
 
 \section{Introduction}
 
-\subsection{compute requirements}
+\subsection{Tiny Recursive Models as a Basis for Solving ARC AGI II Tasks}
+
+...
+
+\subsection{Fitting within Compute Requirements for the ARC Prize 2025 Competition}
 
 The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. As a reference point, TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, such pretraining takes approximately 750k optimizer steps, with a global batch size of 768, while the competition runtime allows for only about 15k optimizer steps at a batch size of 392, given that one must also allow time for inference/evaluation.
 
 The premise of Test-time adaptation is that, by conducting pre-training prior to competition submissions, one can achieve better performance with fine-tuning than one could conducting pre-training from scratch.
+
+\subsection{Approach and Contribution}
+...
 
 \section{Methods}\label{sec:methods}
 
@@ -139,8 +146,13 @@ Rather than train all parameters in the trunk (everything but the embeddings) on
 
 \subsection{Pre-Training}
 
-\subsubsection{TRM Paper ARC AGI II Replication Run}
-All results for the \texttt{pretrain\_att\_arc2concept\_4} run are available at \url{https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch}. The associated pre-trained model checkpoint is released at \cite{Trelis2025TRMARCAGII}.
+All results for the TRM Paper ARC AGI II Replication Run are available at \url{https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch},  see \texttt{pretrain\_att\_arc2concept\_4}, and the associated pre-trained model checkpoint is released at \cite{Trelis2025TRMARCAGII}.
+
+Results for the extended training runs are available at \url{https://wandb.ai/trelis/Arc2-pretrain-final-ACT-torch}, and the released checkpoints are \cite{Trelis2025TRMARCAGIIAll200k} and \cite{Trelis2025TRMARCAGIIHard1M}.
+
+Select results are shown here from the replication rather than the extended runs, because the evaluation set of ten tasks in the extended runs is too small to provide statistically meaningful insights on performance.
+
+Figure \ref{fig:pass_accuracy} shows the evolution of pass@2 and pass@1000 accuracy on the 120 ARC AGI II public eval tasks during the training run, reaching a final pass@2 score of ~10\%, which is higher than the originally reported score of 7.8\% in the TRM paper, presumably associated with stochastic behaviour during training. Figure \ref{fig:exact_accuracy} shows the per-example-pair exact accuracy (i.e. percentage of training pairs the model gets correct within a training batch of 768 example pairs) over the course of training. It is clear that the model heavily overfits the data, although continued training gradually brings up the exact accuracy on the evaluation set, although still far below 100\% by the end of training.
 
 \begin{figure}[t]
     \centering
@@ -156,26 +168,11 @@ All results for the \texttt{pretrain\_att\_arc2concept\_4} run are available at 
     \label{fig:exact_accuracy}
 \end{figure}
 
-\subsubsection{Pre-training on expanded and filtered datasets for more epochs}
-All results for the extended training runs are available at \url{https://wandb.ai/trelis/Arc2-pretrain-final-ACT-torch}. The released checkpoints are \cite{Trelis2025TRMARCAGIIAll200k} and \cite{Trelis2025TRMARCAGIIHard1M}.
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{figures/extended_pass_accuracy.pdf}
-    \caption{ARC evaluation pass@2 and pass@1000 accuracies for the \texttt{all-200k} and \texttt{hard-1M} extended pre-training runs. Solid lines denote \texttt{all-200k}, dashed lines \texttt{hard-1M}.}
-    \label{fig:extended_pass_accuracy}
-\end{figure}
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{figures/extended_exact_accuracy.pdf}
-    \caption{Evaluation and train exact accuracies across extended pre-training. Color encodes evaluation versus train accuracy while line style differentiates the \texttt{all-200k} and \texttt{hard-1M} runs.}
-    \label{fig:extended_exact_accuracy}
-\end{figure}
-
 \subsection{Post-Training}
 \subsubsection{Post-training of the ARC AGI I Pre-trained Model}
-Post-training sweeps were conducted on the ARC AGI I checkpoint released by Xin Gao \cite{Gao2025ARCAGI1TRM}. All experiments were logged in the \texttt{Arc-eval2-aug-1000-ACT-torch} Weights \& Biases project \cite{Trelis2025PosttrainEval2}. Figure~\ref{fig:posttrain_pass_accuracy} compares evaluation pass@2 during the first $6$k optimisation steps for five adaptation strategies: full fine-tuning (\texttt{posttrain\_aa1\_aa2e}), embeddings-only (\texttt{posttrain\_aa1\_aa2e\_fe}), embeddings-only followed by full fine-tuning after a quarter (\texttt{posttrain\_aa1\_aa2e\_feq}) or half (\texttt{posttrain\_aa1\_aa2e\_feh}) of the steps, and LoRA (\texttt{posttrain\_aa1\_aa2e\_lora}). Only the full-model variant produces material gains on evaluation accuracy; partial updates plateau near random guessing despite rapid improvements on the training distribution, underscoring the need for end-to-end adaptation when transferring from ARC AGI I to ARC AGI II difficulty levels.
+Post-training sweeps were conducted on the ARC AGI I checkpoint released by Xin Gao \cite{Gao2025ARCAGI1TRM}. All experiments were logged in the \texttt{Arc-eval2-aug-1000-ACT-torch} Weights \& Biases project \cite{Trelis2025PosttrainEval2}. Figure~\ref{fig:posttrain_pass_accuracy} compares evaluation pass@2 during the first $6$k optimisation steps for five adaptation strategies: full fine-tuning (\texttt{posttrain\_aa1\_aa2e}), embeddings-only (\texttt{posttrain\_aa1\_aa2e\_fe}), embeddings-only followed by full fine-tuning after a quarter (\texttt{posttrain\_aa1\_aa2e\_feq}) or half (\texttt{posttrain\_aa1\_aa2e\_feh}) of the steps, and LoRA (\texttt{posttrain\_aa1\_aa2e\_lora}).
+
+The highest gains in accuracy are achieved by full fine-tuning OR by training only embeddings for a first portion of epochs (either half or one quarter), followed by full-finetunig for the rest. Fine-tuning embeddings only OR LoRA fine-tuning (which additionally includes fine-tuning of embeddings) lead to low accuracy. Note that there is a signicant level of noise involved in these results. For example, LoRA+embeddings fine-tuning looks inferior to fine-tuning embeddings only in the pass@2 metrics. However, looking at a broader set of results - available in Weights and Biases - reveals that LoRA+embeddings slightly outperforms embeddings-only when looking at pass@1000, a somewhat less noisy indicator of performance.
 
 \begin{figure}[t]
     \centering
@@ -183,6 +180,8 @@ Post-training sweeps were conducted on the ARC AGI I checkpoint released by Xin 
     \caption{ARC evaluation pass@2 for the ARC AGI I post-training sweeps logged in \cite{Trelis2025PosttrainEval2}. Each curve shows the first $6$k optimisation steps for a different adaptation strategy.}
     \label{fig:posttrain_pass_accuracy}
 \end{figure}
+
+Note that while only 6k optimizer steps were used for the above sweeps, competition submissions used either 12,000 or 15,000 optimizer steps.
 
 \subsubsection{Post-training of ARC AGI II pre-trained models during competition submissions}
 Simulating ARC AGI II checkpoints provides limited insight: the public evaluation set is already included in pre-training and the ten-task hold-out used for diagnostics offers too small a sample to estimate performance reliably. For completeness these diagnostics, recorded at \cite{Trelis2025PosttrainEval2Holdout}, achieve zero pass@2 after post-training across all models.
@@ -219,11 +218,11 @@ It is interesting to ask whether:
     \item it would be more efficient to use the same task\_id/embedding for all variants of a given task OR whether treating variants as independent tasks provides the model with some useful form of regularisation/generality during pre-training.
 \end{enumerate}
 
-As a means of partially addressing (1), one might look at the cosine of the angle between task embeddings for i) variants of the same task and ii) between the base/original/unvaried form of different tasks. If the TRM does indeed learn to encode task variants similarly, perhaps one should expect a rise in the cosine between embeddings during pre- and post-training. These cosine measures were charted during training of the second and third pre-trained models, and it was found that:
-\begin{enumerate}
-    \item While the cosine does rise away from one, it remains low, suggesting that the model may not meaningfully recognise that variants are related.
-    \item The cosine of the angle between unvaried base tasks also rises but remains low. This is suggestive of there being little
-\end{enumerate}
+As a means of partially addressing (1), one might look at the cosine of the angle between task embeddings for i) variants of the same task and ii) between the base/original/unvaried form of different tasks. If the TRM does indeed learn to encode task variants similarly, perhaps one should expect a rise in the cosine between embeddings during pre- and post-training. With this as motivation, these measures were recorded during the pretraining of the TRM for 200k epochs on the extended dataset (extended to include 'tama' and ARC EVAL II evaluation test examples, see \ref{sec:methods}).
+
+Figure \ref{fig:embedding_cosine_within} shows the evolution of the cosine of the angle between task embeddings of variants of the same task (averaged across tasks in a given batch), for training and evaluation sets. Note that the angle between task id embeddings is reported as zero at most steps because there is at most one variant of each task per batch of 768 example pairs. If one looks in greater granularity at the data, there are timesteps reaching cosine similarity of up to about 0.1 . This is more apparent in the training of the third model on the subset of hard tasks (not shown in these plots), since there are only 230 base task ids and every batch therefore includes more than one variant for each task. Nonetheless, the cosine similarity of task id embeddings for variants of the same task is low when measured on the training set. The cosine similarity is higher, and rising throughout training, when measured on the evaluation set. It is not obvious why training and evaluation sets diverge here and why the model might adapt to develop more similarity on evaluation example pairs. 
+
+Figure \ref{fig:embedding_cosine_across} illustrates the evolution - over the course of training - of the cosine of the angle between the base variants of different tasks within the same training batch. Although there is some gap between the cosine on training and evaluation examples, both rise together, although the measurement seems to asymptote more on the training examples. Interestingly, comparing \ref{fig:embedding_cosine_across} and \ref{fig:embedding_cosine_within}, task id embeddings appear similarly distant within tasks as between tasks, suggesting the relationship between variants of the same task are not clearly expressed - at least within the embeddings alone.
 
 \begin{figure}[t]
     \centering
@@ -239,7 +238,7 @@ As a means of partially addressing (1), one might look at the cosine of the angl
     \label{fig:embedding_cosine_across}
 \end{figure}
 
-\subsection{On the benefits and need for pre-training}
+\subsection{On the benefit of joint training on multiiple tasks for compute efficiency}
 
 If post training requires fewer optimizer steps than training from scratch -- to reach the same performance -- then clearly there is meaningful inter-task learning OR at least there are shared concepts involved in training TRM.
 
@@ -266,9 +265,11 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 
 \subsection{On improvements to majority voting}
 
-\section{Future Work}
+\section{Conclusion and future work}
 
-\section{Conclusion}
+Full fine-tuning allowed a pre-trained tiny recursive transformer model to be efficiently adapted in the compute-limited environment of the ARC AGI II competition. Effective adaptation appears to require updating both task id embeddings AND the trunk of the model at competition time.
+
+Currently, the use of tiny recursive models has been limited to single or low double digit scores on ARC AGI II tasks. While post-training of a pretrained TRM is much more compute efficient than pre-training from scratch, it has not been shown that post-training can exceed or reach the performance achieved in pre-training. That pass@1000 metrics reach well above pass@2 metrics, often above 20\% on ARC AGI II difficulty tasks, suggests that performance improvements are possible. It remains an open question how far performance could be pushed through model size or hyper parameter improvements with or without further data additions or augmentations.
 
 \section{Acknowledgements}
 

@@ -1,0 +1,81 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{JolicoeurMartineau2025TinyRecursive}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Tiny Recursive Models as a Basis for Solving ARC AGI II Tasks}{1}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Fitting within Compute Requirements for the ARC Prize 2025 Competition}{1}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Approach and Contribution}{1}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Methods}{1}{section.2}\protected@file@percent }
+\newlabel{sec:methods}{{2}{1}{Methods}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Pre-training}{1}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.1}Original Paper Replication - 100k epochs}{1}{subsubsection.2.1.1}\protected@file@percent }
+\citation{StrandgaardTamaDataset}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.2}Extended Data for 200k Epochs}{2}{subsubsection.2.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.3}Filtered Hard Data for 500k Epochs}{2}{subsubsection.2.1.3}\protected@file@percent }
+\citation{Gao2025ARCAGI1TRM}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Post-training}{3}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Simulating and Measuring Post-training Performance}{3}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}Post-training an ARC AGI I pre-trained model}{3}{subsubsection.2.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}Post-training an ARC AGI II pre-trained model, but with 10 public eval tasks withheld as a test}{4}{subsubsection.2.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}Post-training an ARC AGI II pre-trained model via a formal ARC AGI 2025 Submission}{4}{subsubsection.2.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Post-training Methods}{4}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.1}Full fine-tuning}{4}{subsubsection.2.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.2}Fine-tuning of embeddings only.}{4}{subsubsection.2.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.3}Fine-tuning of embeddings and then full-finetuning}{4}{subsubsection.2.4.3}\protected@file@percent }
+\citation{Trelis2025TRMARCAGII}
+\citation{Trelis2025TRMARCAGIIAll200k}
+\citation{Trelis2025TRMARCAGIIHard1M}
+\citation{Gao2025ARCAGI1TRM}
+\citation{Trelis2025PosttrainEval2}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.4}LoRA fine-tuning of the trunk plus embeddings fine-tuning}{5}{subsubsection.2.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Results}{5}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Pre-Training}{5}{subsection.3.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces ARC evaluation pass@2 and pass@1000 accuracies throughout training for the \texttt  {pretrain\_att\_arc2concept\_4} replication run.}}{5}{figure.1}\protected@file@percent }
+\newlabel{fig:pass_accuracy}{{1}{5}{ARC evaluation pass@2 and pass@1000 accuracies throughout training for the \texttt {pretrain\_att\_arc2concept\_4} replication run}{figure.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Evaluation and train exact accuracies throughout training for the \texttt  {pretrain\_att\_arc2concept\_4} replication run.}}{5}{figure.2}\protected@file@percent }
+\newlabel{fig:exact_accuracy}{{2}{5}{Evaluation and train exact accuracies throughout training for the \texttt {pretrain\_att\_arc2concept\_4} replication run}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Post-Training}{5}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}Post-training of the ARC AGI I Pre-trained Model}{5}{subsubsection.3.2.1}\protected@file@percent }
+\citation{Trelis2025PosttrainEval2}
+\citation{Trelis2025PosttrainEval2}
+\citation{Trelis2025PosttrainEval2Holdout}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces ARC evaluation pass@2 for the ARC AGI I post-training sweeps logged in \cite  {Trelis2025PosttrainEval2}. Each curve shows the first $6$k optimisation steps for a different adaptation strategy.}}{6}{figure.3}\protected@file@percent }
+\newlabel{fig:posttrain_pass_accuracy}{{3}{6}{ARC evaluation pass@2 for the ARC AGI I post-training sweeps logged in \cite {Trelis2025PosttrainEval2}. Each curve shows the first $6$k optimisation steps for a different adaptation strategy}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}Post-training of ARC AGI II pre-trained models during competition submissions}{6}{subsubsection.3.2.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Semi-private evaluation accuracy achieved after post-training ARC AGI II checkpoints within the competition environment.}}{6}{table.1}\protected@file@percent }
+\newlabel{tab:semi_private_scores}{{1}{6}{Semi-private evaluation accuracy achieved after post-training ARC AGI II checkpoints within the competition environment}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Discussion}{6}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Pre-training is required for limited compute competition environments}{6}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}On the use of augmentation-specific task embeddings}{6}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Embedding cosine similarity among augmented variants of the same task during extended pre-training.}}{7}{figure.4}\protected@file@percent }
+\newlabel{fig:embedding_cosine_within}{{4}{7}{Embedding cosine similarity among augmented variants of the same task during extended pre-training}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Embedding cosine similarity across base tasks for the extended pre-training runs.}}{7}{figure.5}\protected@file@percent }
+\newlabel{fig:embedding_cosine_across}{{5}{7}{Embedding cosine similarity across base tasks for the extended pre-training runs}{figure.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}On the benefit of joint training on multiiple tasks for compute efficiency}{7}{subsection.4.3}\protected@file@percent }
+\bibstyle{plainnat}
+\bibdata{references}
+\bibcite{Gao2025ARCAGI1TRM}{{1}{2025}{{Gao}}{{}}}
+\bibcite{JolicoeurMartineau2025TinyRecursive}{{2}{2025}{{Jolicoeur-Martineau}}{{}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}{8}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}On the distribution of ARC AGI II tasks}{8}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Ablations}{8}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}On the method of embedding initialisation in post-training}{8}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}On improvements to majority voting}{8}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion and future work}{8}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Acknowledgements}{8}{section.7}\protected@file@percent }
+\bibcite{StrandgaardTamaDataset}{{3}{2024}{{Strandgaard}}{{}}}
+\bibcite{Trelis2025PosttrainEval2}{{4}{2025{}}{{Trelis}}{{}}}
+\bibcite{Trelis2025PosttrainEval2Holdout}{{5}{2025{}}{{Trelis}}{{}}}
+\bibcite{Trelis2025TRMARCAGII}{{6}{2025{}}{{Trelis}}{{}}}
+\bibcite{Trelis2025TRMARCAGIIAll200k}{{7}{2025{}}{{Trelis}}{{}}}
+\bibcite{Trelis2025TRMARCAGIIHard1M}{{8}{2025{}}{{Trelis}}{{}}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Raw dataset splits used across experiments.}}{10}{table.2}\protected@file@percent }
+\newlabel{tab:raw_splits}{{2}{10}{Raw dataset splits used across experiments}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Derived splits constructed for extended pre-training and evaluation.}}{10}{table.3}\protected@file@percent }
+\newlabel{tab:derived_splits}{{3}{10}{Derived splits constructed for extended pre-training and evaluation}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}ARC Task Example Data Splits}{10}{appendix.A}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Notes on derived splits.}{10}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Side notes.}{10}{section*.3}\protected@file@percent }
+\gdef \@abspage@last{10}
