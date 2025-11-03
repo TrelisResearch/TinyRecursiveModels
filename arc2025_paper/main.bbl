@@ -1,0 +1,57 @@
+\begin{thebibliography}{8}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Gao(2025)]{Gao2025ARCAGI1TRM}
+Xin Gao.
+\newblock Tiny recursive models -- arc agi 1.
+\newblock \url{https://huggingface.co/Sanjin2024/TinyRecursiveModels-ARC-AGI-1}, 2025.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Jolicoeur-Martineau(2025)]{JolicoeurMartineau2025TinyRecursive}
+Alex Jolicoeur-Martineau.
+\newblock Less is more: Recursive reasoning with tiny networks.
+\newblock 2025.
+\newblock \doi{10.48550/arXiv.2510.04871}.
+\newblock URL \url{https://doi.org/10.48550/arXiv.2510.04871}.
+
+\bibitem[Strandgaard(2024)]{StrandgaardTamaDataset}
+Simon Strandgaard.
+\newblock Arc dataset collection: Tama split.
+\newblock \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama}, 2024.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{a}})]{Trelis2025PosttrainEval2}
+Trelis.
+\newblock Arc prize post-training sweeps (arc-eval2-aug-1000-act-torch).
+\newblock \url{https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch}, 2025{\natexlab{a}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{b}})]{Trelis2025PosttrainEval2Holdout}
+Trelis.
+\newblock Arc prize post-training hold-out diagnostics (arc-evaluation2test-aug-1000-act-torch).
+\newblock \url{https://wandb.ai/trelis/Arc-evaluation2test-aug-1000-ACT-torch}, 2025{\natexlab{b}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{c}})]{Trelis2025TRMARCAGII}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii.
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II}, 2025{\natexlab{c}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{d}})]{Trelis2025TRMARCAGIIAll200k}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii (all-200k).
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-all-200k}, 2025{\natexlab{d}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{e}})]{Trelis2025TRMARCAGIIHard1M}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii (hard-1m).
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-hard-1M}, 2025{\natexlab{e}}.
+\newblock Accessed: 2025-11-03.
+
+\end{thebibliography}

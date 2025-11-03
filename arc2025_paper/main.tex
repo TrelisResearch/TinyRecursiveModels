@@ -7,6 +7,7 @@
 \usepackage[numbers]{natbib}
 \usepackage{booktabs}
 \usepackage[hidelinks]{hyperref}
+\usepackage{siunitx}
 
 \title{Test-time Adaptation of Tiny Recursive Models}
 \author{Ronan McGovern\\Trelis LTD\\\texttt{Trelis.com}}
@@ -24,7 +25,7 @@ The ARC Prize 2025 competition allows for the use of four L4 accelerators for tw
 
 The premise of Test-time adaptation is that, by conducting pre-training prior to competition submissions, one can achieve better performance with fine-tuning than one could conducting pre-training from scratch.
 
-\section{Methods}
+\section{Methods}\label{sec:methods}
 
 A recursive transformer model was pre-trained on ARC AGI II training tasks in close accordance to the Tiny Recursive Model paper \cite{JolicoeurMartineau2025TinyRecursive}. During competition submissions, this pre-trained model was fully fine-tuned on the train example pairs of the test tasks. This fine-tuned model was used to predict test example outputs, using a majority voting method.
 
@@ -138,9 +139,7 @@ Rather than train all parameters in the trunk (everything but the embeddings) on
 
 \subsection{Pre-Training}
 
-
-
-\subsection{TRM Paper ARC AGI II Replication Run}
+\subsubsection{TRM Paper ARC AGI II Replication Run}
 All results for the \texttt{pretrain\_att\_arc2concept\_4} run are available at \url{https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch}. The associated pre-trained model checkpoint is released at \cite{Trelis2025TRMARCAGII}.
 
 \begin{figure}[t]
@@ -174,48 +173,38 @@ All results for the extended training runs are available at \url{https://wandb.a
     \label{fig:extended_exact_accuracy}
 \end{figure}
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{figures/embedding_cosine_within.pdf}
-    \caption{Embedding cosine similarity among augmented variants of the same task during extended pre-training.}
-    \label{fig:embedding_cosine_within}
-\end{figure}
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{figures/embedding_cosine_across.pdf}
-    \caption{Embedding cosine similarity across base tasks for the extended pre-training runs.}
-    \label{fig:embedding_cosine_across}
-\end{figure}
-
 \subsection{Post-Training}
 \subsubsection{Post-training of the ARC AGI I Pre-trained Model}
-Here are results from post training the ARC AGI I Pre-trained Model from Xin Gao (reference here).
+Post-training sweeps were conducted on the ARC AGI I checkpoint released by Xin Gao \cite{Gao2025ARCAGI1TRM}. All experiments were logged in the \texttt{Arc-eval2-aug-1000-ACT-torch} Weights \& Biases project \cite{Trelis2025PosttrainEval2}. Figure~\ref{fig:posttrain_pass_accuracy} compares evaluation pass@2 during the first $6$k optimisation steps for five adaptation strategies: full fine-tuning (\texttt{posttrain\_aa1\_aa2e}), embeddings-only (\texttt{posttrain\_aa1\_aa2e\_fe}), embeddings-only followed by full fine-tuning after a quarter (\texttt{posttrain\_aa1\_aa2e\_feq}) or half (\texttt{posttrain\_aa1\_aa2e\_feh}) of the steps, and LoRA (\texttt{posttrain\_aa1\_aa2e\_lora}). Only the full-model variant produces material gains on evaluation accuracy; partial updates plateau near random guessing despite rapid improvements on the training distribution, underscoring the need for end-to-end adaptation when transferring from ARC AGI I to ARC AGI II difficulty levels.
 
-data source: https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch
-lora: posttrain_aa1_aa2e_lora
-embedding followed by fine-tuning: posttrain_aa1_aa2e_feq
-embeddings only: posttrain_aa1_aa2e_fe
-embeddings only for one quarter of steps: posttrain_aa1_aa2e_feq
-embeddings only for one half of steps: posttrain_aa1_aa2e_feh
-full fine-tuning: posttrain_aa1_aa2e
-(and we should only show up to roughly 6k training steps here).
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/posttrain_pass_accuracy.pdf}
+    \caption{ARC evaluation pass@2 for the ARC AGI I post-training sweeps logged in \cite{Trelis2025PosttrainEval2}. Each curve shows the first $6$k optimisation steps for a different adaptation strategy.}
+    \label{fig:posttrain_pass_accuracy}
+\end{figure}
 
 \subsubsection{Post-training of ARC AGI II pre-trained models during competition submissions}
-Simulation of ARC AGI II pre-trained models is uninformative either because the models have been pre-trained on the public evaluation set OR the ten withheld tasks are too small in number to provide a meaningful signal. Results for post-training on 10 withheld tasks are reported here (https://wandb.ai/trelis/Arc-evaluation2test-aug-1000-ACT-torch) nonetheless. Pass@2 performance - after posttraining - on the held out ten tasks is zero for all pretrained models.
+Simulating ARC AGI II checkpoints provides limited insight: the public evaluation set is already included in pre-training and the ten-task hold-out used for diagnostics offers too small a sample to estimate performance reliably. For completeness these diagnostics, recorded at \cite{Trelis2025PosttrainEval2Holdout}, achieve zero pass@2 after post-training across all models.
 
-Three pre-trained models were submitted to the competition environment for post-training. All were post-trained with the settings described in the methods section, except model pre-trained almost exactly like the TRM paper was post-trained for 12500 epochs, while the other two were post-trained for 15000 epochs. (Total epochs were extended later in the competition when there was confidence there was sufficient run time to do so without hitting the 12-hour limit and timing out).
+Three pre-trained models were nevertheless submitted to the ARC Prize 2025 runtime for competition post-training. All submissions reused the configuration in Section~\ref{sec:methods}, with the baseline TRM replication fine-tuned for $12.5$k steps and the extended variants for $15$k steps to stay within the twelve-hour budget. Table~\ref{tab:semi_private_scores} summarises the resulting semi-private evaluation scores. Re-submitting the same model often yielded scores ranging from $3.33$ to $6.67$ depending on minor procedural tweaks (for example, adjusting the duration of frozen trunk updates or adding brief continued pre-training), underscoring the high variance inherent in the evaluation process.
 
-(make the below a table)
-Pretrained Model | semi-private eval score
-TRM Paper Replication | 6.67%
-Expanded data, 200k epochs | 4.25%
-Filtered hard data, 1M epochs | 1.27%
+\begin{table}[t]
+    \centering
+    \caption{Semi-private evaluation accuracy achieved after post-training ARC AGI II checkpoints within the competition environment.}
+    \label{tab:semi_private_scores}
+    \begin{tabular}{@{}lS[table-format=1.2]@{}}
+        \toprule
+        Pre-trained model & {Accuracy (\%)} \\
+        \midrule
+        TRM paper replication & 6.67 \\
+        Expanded data, 200k epochs & 4.25 \\
+        Filtered hard data, 1M epochs & 1.27 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-Note that there is a high level of variance to be expected even when submitting the same approach
-
-
-\section{Discussion and Further Ablations}
+\section{Discussion}
 
 \subsection{Pre-training is required for limited compute competition environments}
 ...
@@ -235,6 +224,20 @@ As a means of partially addressing (1), one might look at the cosine of the angl
     \item While the cosine does rise away from one, it remains low, suggesting that the model may not meaningfully recognise that variants are related.
     \item The cosine of the angle between unvaried base tasks also rises but remains low. This is suggestive of there being little
 \end{enumerate}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/embedding_cosine_within.pdf}
+    \caption{Embedding cosine similarity among augmented variants of the same task during extended pre-training.}
+    \label{fig:embedding_cosine_within}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/embedding_cosine_across.pdf}
+    \caption{Embedding cosine similarity across base tasks for the extended pre-training runs.}
+    \label{fig:embedding_cosine_across}
+\end{figure}
 
 \subsection{On the benefits and need for pre-training}
 
@@ -258,11 +261,10 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
     \item Model performance is sensitive to the amount of data that must be encoded. For the same model size, one cannot directly compare the performance pre or post training on 120 tasks versus 60 tasks.
 \end{itemize}
 
+\section{Ablations}
 \subsection{On the method of embedding initialisation in post-training}
 
 \subsection{On improvements to majority voting}
-
-\subsection{Regarding the high level of noise in results}
 
 \section{Future Work}
 
