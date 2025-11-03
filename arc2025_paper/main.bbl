@@ -1,9 +1,16 @@
-\begin{thebibliography}{2}
+\begin{thebibliography}{3}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Gao(2025)]{Gao2025ARCAGI1TRM}
+Xin Gao.
+\newblock Tiny recursive models -- arc agi 1.
+\newblock
+  \url{https://huggingface.co/Sanjin2024/TinyRecursiveModels-ARC-AGI-1}, 2025.
+\newblock Accessed: 2025-11-03.
 
 \bibitem[Jolicoeur-Martineau(2025)]{JolicoeurMartineau2025TinyRecursive}
 Alex Jolicoeur-Martineau.
@@ -15,7 +22,9 @@ Alex Jolicoeur-Martineau.
 \bibitem[Strandgaard(2024)]{StrandgaardTamaDataset}
 Simon Strandgaard.
 \newblock Arc dataset collection: Tama split.
-\newblock \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama}, 2024.
-\newblock Accessed: 2025-02-09.
+\newblock
+  \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama},
+  2024.
+\newblock Accessed: 2025-11-03.
 
 \end{thebibliography}

@@ -74,26 +74,30 @@ In sum, this meant pre-training on 230 tasks:
 
 \subsection{Post-training}
 Four approaches to post-training were conducted:
-1. Full-fine tuning of a pretrained model.
-2. Fine-tuning of embeddings only.
-3. Full-fine tuning of a pretrained model, training only embeddings for the first quarter of optimizer steps.
-4. LoRA fine-tuning of a pretrained model.
+\begin{enumerate}
+    \item Full-fine tuning of a pretrained model.
+    \item Fine-tuning of embeddings only.
+    \item Full-fine tuning of a pretrained model, training only embeddings for the first quarter of optimizer steps.
+    \item LoRA fine-tuning of a pretrained model.
+\end{enumerate}
 
-The fifth relevant approach - and null hypothesis - is to post-train on a randomly initialized model. For this baseline, we can look to results reported for the pre-training section above.
+The fifth relevant approach -- and null hypothesis -- is to post-train on a randomly initialized model. For this baseline, we can look to results reported for the pre-training section above.
 
 All post-training runs were conducted in the same manner and with the same hyperparameters as the pre-training runs, but with the following differences:
-1. At the start of each pre-training run, the model was initialised from a pretrained model in the previous section.
-2. Owing to lower total VRAM available on 4xL4s compared to 4xH100 SXMs, a global batch size of 392 was used instead of 768 for pre-training. Accordingly, the learning rate for the model trunk and for the embedding trunk were doubled (to 2e-4 and 2e-2, respectively).
-3. Owing to the compute limitation at competition time, training was run for only 15,000 optimizer steps, rather than ~750k in the original pre-training.
-4. Post-training was conducted only on test tasks. No additional data was mixed in. For competition runs, this means running on semi-private test tasks, which can only be done by making a formal submission to the ARC Prize 2025 competition (noting that one submission is allowed daily).
-5. TRM uses a majority voting method to make test output predictions, defaulting to a vote over 1,000 augmented versions of each task. Since compute time is limited during the competition, only 256 or 512 augmentations are used at evaluation time - although 1,000 are still used during pre- and post-training. The number of augmentations does not affect training time because epochs are defined as epochs over a given task and it's variants (for a given task, a variant is sampled at random during each epoch).
+\begin{enumerate}
+    \item At the start of each pre-training run, the model was initialised from a pretrained model in the previous section.
+    \item Owing to lower total VRAM available on 4xL4s compared to 4xH100 SXMs, a global batch size of 392 was used instead of 768 for pre-training. Accordingly, the learning rate for the model trunk and for the embedding trunk were doubled (to 2e-4 and 2e-2, respectively).
+    \item Owing to the compute limitation at competition time, training was run for only 15,000 optimizer steps, rather than $\sim$750k in the original pre-training.
+    \item Post-training was conducted only on test tasks. No additional data was mixed in. For competition runs, this means running on semi-private test tasks, which can only be done by making a formal submission to the ARC Prize 2025 competition (noting that one submission is allowed daily).
+    \item TRM uses a majority voting method to make test output predictions, defaulting to a vote over 1,000 augmented versions of each task. Since compute time is limited during the competition, only 256 or 512 augmentations are used at evaluation time -- although 1,000 are still used during pre- and post-training. The number of augmentations does not affect training time because epochs are defined as epochs over a given task and its variants (for a given task, a variant is sampled at random during each epoch).
+\end{enumerate}
 
 \subsection{Simulating and Measuring Post-training Performance}
 
 Simulating post-training performance is difficult, as there are only 120 public evaluation tasks for ARC AGI II, and - if one is to post-train on those tasks - those same tasks cannot be included in one's pre-trained model. Three workarounds were attempted, with varying degrees of success.
 
 \subsubsection{Post-training an ARC AGI I pre-trained model}
-To assess the effectiveness of post training one can first pre-train a model on ARC AGI I tasks, i.e. the train and test example pairs from the 400 task training split, and the test pairs from the 400 task evaluation split. Such a model was already available on HuggingFace from Xin Gao (refrence here: https://huggingface.co/Sanjin2024/TinyRecursiveModels-ARC-AGI-1) and so that model was used without re-training.
+To assess the effectiveness of post training one can first pre-train a model on ARC AGI I tasks, i.e. the train and test example pairs from the 400 task training split, and the test pairs from the 400 task evaluation split. Such a model was already available on HuggingFace from Xin Gao \cite{Gao2025ARCAGI1TRM} and so that model was used without re-training.
 
 This pre-trained model - which has only six tasks that also appear in the ARC AGI II public dataset [see notes on this in Appendix ...] - can then be post-trained on the train example pairs of ARC AGI II training and then used to make predictions of the corresponding test example pairs. Note that, for post-training to be effective, it is not a necessary condition that this approach show positive results, because ARC AGI I tasks are significantly easier than ARC AGI II tasks. As such, a model pre-trained with ARC AGI I may be too weak to provide a head start to post-training on ARC AGI II level tasks. As it turns out, the ARC AGI I pre-trained model IS strong enough to meaningfully help with post-training for ARC AGI II grade tasks.
 
