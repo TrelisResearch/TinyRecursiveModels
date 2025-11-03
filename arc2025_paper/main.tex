@@ -133,10 +133,60 @@ As it turns out, post-training only of the embeddings results in a score of near
 \subsubsection{LoRA fine-tuning of the trunk plus embeddings fine-tuning}
 Rather than train all parameters in the trunk (everything but the embeddings) one might instead train a set of low rank adapters for linear layers in the trunk. This reduces the number of parameters that are trainable. The motivation is potentially to avoid overfitting by training all parameters. However, TRMs are already low in parameter count, and the use of LoRA may reduce the ability of the model to adapt to the newly presented tasks. This appears to be the case.
 
+
 \section{Results}
 
 \subsection{Pre-Training}
 
+
+
+\subsection{TRM Paper ARC AGI II Replication Run}
+All results for the \texttt{pretrain\_att\_arc2concept\_4} run are available at \url{https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch}. The associated pre-trained model checkpoint is released at \cite{Trelis2025TRMARCAGII}.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/pass_accuracy.pdf}
+    \caption{ARC evaluation pass@2 and pass@1000 accuracies throughout training for the \texttt{pretrain\_att\_arc2concept\_4} replication run.}
+    \label{fig:pass_accuracy}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/exact_accuracy.pdf}
+    \caption{Evaluation and train exact accuracies throughout training for the \texttt{pretrain\_att\_arc2concept\_4} replication run.}
+    \label{fig:exact_accuracy}
+\end{figure}
+
+\subsubsection{Pre-training on expanded and filtered datasets for more epochs}
+All results for the extended training runs are available at \url{https://wandb.ai/trelis/Arc2-pretrain-final-ACT-torch}. The released checkpoints are \cite{Trelis2025TRMARCAGIIAll200k} and \cite{Trelis2025TRMARCAGIIHard1M}.
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.95\columnwidth}{Placeholder for pass@2 and pass@1000 plot.}}
+    \caption{Planned figure: ARC evaluation pass@2 and pass@1000 accuracies for the extended pre-training runs.}
+    \label{fig:extended_pass_accuracy}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.95\columnwidth}{Placeholder for evaluation and train exact accuracy plot.}}
+    \caption{Planned figure: evaluation and train exact accuracies throughout extended pre-training.}
+    \label{fig:extended_exact_accuracy}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.95\columnwidth}{Placeholder for embedding cosine within-task plot.}}
+    \caption{Planned figure: train and evaluation embedding cosine similarity within task variants.}
+    \label{fig:embedding_cosine_within}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \fbox{\parbox{0.95\columnwidth}{Placeholder for embedding cosine across tasks plot.}}
+    \caption{Planned figure: train and evaluation embedding cosine similarity across base tasks.}
+    \label{fig:embedding_cosine_across}
+\end{figure}
 
 \subsection{Post-Training}
 
@@ -186,13 +236,17 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 
 \subsection{On the method of embedding initialisation in post-training}
 
+\subsection{On improvements to majority voting}
+
+\subsection{Regarding the high level of noise in results}
+
 \section{Future Work}
 
 \section{Conclusion}
 
 \section{Acknowledgements}
 
-This work was supported by Runpod, which provided \$15k of compute, and by Lambda Labs, which provided \$1k of compute. Thanks to Lewis Hemens for months of collaboration on ARC Prize research. Thanks to Jack Boylan for assistance in running the pre-training replication.
+This work was supported by Runpod, which provided \$15k of compute, and by Lambda Labs, which provided \$1k of compute. Thanks to Lewis Hemens for months of collaboration on ARC Prize research and support for compute costs. Thanks to Jack Boylan for assistance in running the pre-training replication.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

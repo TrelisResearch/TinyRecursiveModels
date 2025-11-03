@@ -1,4 +1,4 @@
-\begin{thebibliography}{3}
+\begin{thebibliography}{6}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -25,6 +25,27 @@ Simon Strandgaard.
 \newblock
   \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama},
   2024.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{a}})]{Trelis2025TRMARCAGII}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii.
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II},
+  2025{\natexlab{a}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{b}})]{Trelis2025TRMARCAGIIAll200k}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii (all-200k).
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-all-200k},
+  2025{\natexlab{b}}.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Trelis(2025{\natexlab{c}})]{Trelis2025TRMARCAGIIHard1M}
+Trelis.
+\newblock Tiny recursive models -- arc agi ii (hard-1m).
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-hard-1M},
+  2025{\natexlab{c}}.
 \newblock Accessed: 2025-11-03.
 
 \end{thebibliography}
