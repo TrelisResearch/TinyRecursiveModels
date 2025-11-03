@@ -41,6 +41,22 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
   arch=trm \
   +run_name="${run_name}" > pretrain_all_200k.log &
 ```
+and then **continued pretraining:**
+```bash
+hf download Trelis/TRM-ARC-AGI-II-all-200k \
+  step_769740 \
+  --local-dir pretrained
+```
+
+```bash
+run_name="pretrain_all_200k_ctd"
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_all_8x \
+  data_paths=['data/arc2-pretrain-final'] \
+  load_checkpoint="pretrained/step_769740" \
+  +run_name="${run_name}" > pretrain_all_200k_ctd.log &
+```
+
 ### 1M epochs on hard data
 ```bash
 run_name="pretrain_hard_1M"
