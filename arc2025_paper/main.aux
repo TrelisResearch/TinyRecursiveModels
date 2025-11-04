@@ -48,19 +48,27 @@
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Semi-private evaluation accuracy achieved after post-training ARC AGI II checkpoints within the competition environment.}}{7}{table.1}\protected@file@percent }
 \newlabel{tab:semi_private_scores}{{1}{7}{Semi-private evaluation accuracy achieved after post-training ARC AGI II checkpoints within the competition environment}{table.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Discussion}{7}{section.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Pre-training is required for limited compute competition environments}{7}{subsection.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}On the use of augmentation-specific task embeddings}{7}{subsection.4.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Embedding cosine similarity among augmented variants of the same task during extended pre-training.}}{8}{figure.4}\protected@file@percent }
-\newlabel{fig:embedding_cosine_within}{{4}{8}{Embedding cosine similarity among augmented variants of the same task during extended pre-training}{figure.4}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Embedding cosine similarity across base tasks for the extended pre-training runs.}}{8}{figure.5}\protected@file@percent }
-\newlabel{fig:embedding_cosine_across}{{5}{8}{Embedding cosine similarity across base tasks for the extended pre-training runs}{figure.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}On the benefit of joint training on multiiple tasks for compute efficiency}{8}{subsection.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}{9}{subsection.4.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}On the distribution of ARC AGI II tasks}{9}{subsection.4.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Ablations}{9}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}On the method of embedding initialisation in post-training}{9}{subsection.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}On improvements to majority voting}{9}{subsection.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion and future work}{9}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Pre-training from Scratch Does not Fit within Competition Compute Limits}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Fine-tuning a Pre-trained Model Significantly Accelerates Adaptation}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}It remains unclear what diversity of pre-training tasks best shapes a network for post-training on unseen tasks}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}On the continued pre-training of pre-trained models}{8}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}On the use of augmentation-specific task embeddings}{9}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.5.1}Using cosine similarity to measure the model's ability to encode related tasks}{9}{subsubsection.4.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.5.2}Pre-training a model with explicitly encoded embeddings}{9}{subsubsection.4.5.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Embedding cosine similarity among augmented variants of the same task during extended pre-training.}}{10}{figure.4}\protected@file@percent }
+\newlabel{fig:embedding_cosine_within}{{4}{10}{Embedding cosine similarity among augmented variants of the same task during extended pre-training}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Embedding cosine similarity across base tasks for the extended pre-training runs.}}{10}{figure.5}\protected@file@percent }
+\newlabel{fig:embedding_cosine_across}{{5}{10}{Embedding cosine similarity across base tasks for the extended pre-training runs}{figure.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Post-training Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}{10}{subsection.4.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.7}On the distribution of ARC AGI II tasks}{11}{subsection.4.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Other Ablations}{11}{section.5}\protected@file@percent }
+\newlabel{sec:ablations}{{5}{11}{Other Ablations}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}On the method of embedding initialisation in post-training}{11}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}On the variation of batch size during post training}{11}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}On improvements to majority voting}{11}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}On the benefit of joint training on multiiple tasks for compute efficiency}{12}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}On the use of smaller or larger model parameter counts}{12}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion and future work}{12}{section.7}\protected@file@percent }
 \bibstyle{plainnat}
 \bibdata{references}
 \bibcite{Gao2025ARCAGI1TRM}{{1}{2025}{{Gao}}{{}}}
@@ -71,12 +79,12 @@
 \bibcite{Trelis2025TRMARCAGII}{{6}{2025{}}{{Trelis}}{{}}}
 \bibcite{Trelis2025TRMARCAGIIAll200k}{{7}{2025{}}{{Trelis}}{{}}}
 \bibcite{Trelis2025TRMARCAGIIHard1M}{{8}{2025{}}{{Trelis}}{{}}}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Acknowledgements}{10}{section.7}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Raw dataset splits used across experiments.}}{11}{table.2}\protected@file@percent }
-\newlabel{tab:raw_splits}{{2}{11}{Raw dataset splits used across experiments}{table.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Derived splits constructed for extended pre-training and evaluation.}}{11}{table.3}\protected@file@percent }
-\newlabel{tab:derived_splits}{{3}{11}{Derived splits constructed for extended pre-training and evaluation}{table.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}ARC Task Example Data Splits}{11}{appendix.A}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Notes on derived splits.}{11}{section*.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Side notes.}{11}{section*.3}\protected@file@percent }
-\gdef \@abspage@last{11}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Acknowledgements}{13}{section.8}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Raw dataset splits used across experiments.}}{14}{table.2}\protected@file@percent }
+\newlabel{tab:raw_splits}{{2}{14}{Raw dataset splits used across experiments}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Derived splits constructed for extended pre-training and evaluation.}}{14}{table.3}\protected@file@percent }
+\newlabel{tab:derived_splits}{{3}{14}{Derived splits constructed for extended pre-training and evaluation}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}ARC Task Example Data Splits}{14}{appendix.A}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Notes on derived splits.}{14}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Side notes.}{14}{section*.3}\protected@file@percent }
+\gdef \@abspage@last{14}

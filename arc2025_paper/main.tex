@@ -192,8 +192,6 @@ Figure \ref{fig:pass_accuracy} shows the evolution of pass@2 and pass@1000 accur
 \subsubsection{Post-training of the ARC AGI I Pre-trained Model}
 Post-training sweeps were conducted on the ARC AGI I checkpoint released by Xin Gao \cite{Gao2025ARCAGI1TRM}. All experiments were logged in the \texttt{Arc-eval2-aug-1000-ACT-torch} Weights \& Biases project \cite{Trelis2025PosttrainEval2}. Figure~\ref{fig:posttrain_pass_accuracy} compares evaluation pass@2 during the first $6$k optimisation steps for five adaptation strategies: full fine-tuning (\texttt{posttrain\_aa1\_aa2e}), embeddings-only (\texttt{posttrain\_aa1\_aa2e\_fe}), embeddings-only followed by full fine-tuning after a quarter (\texttt{posttrain\_aa1\_aa2e\_feq}) or half (\texttt{posttrain\_aa1\_aa2e\_feh}) of the steps, and LoRA (\texttt{posttrain\_aa1\_aa2e\_lora}).
 
-The highest gains in accuracy are achieved by full fine-tuning OR by training only embeddings for a first portion of epochs (either half or one quarter), followed by full-finetunig for the rest. Fine-tuning embeddings only OR LoRA fine-tuning (which additionally includes fine-tuning of embeddings) lead to low accuracy. Note that there is a signicant level of noise involved in these results. For example, LoRA+embeddings fine-tuning looks inferior to fine-tuning embeddings only in the pass@2 metrics. However, looking at a broader set of results - available in Weights and Biases - reveals that LoRA+embeddings slightly outperforms embeddings-only when looking at pass@1000, a somewhat less noisy indicator of performance.
-
 \begin{figure}[t]
     \centering
     \includegraphics[width=\columnwidth]{figures/posttrain_pass_accuracy.pdf}
@@ -225,8 +223,33 @@ Three pre-trained models were nevertheless submitted to the ARC Prize 2025 runti
 
 \section{Discussion}
 
-\subsection{Pre-training is required for limited compute competition environments}
-...
+\subsection{Pre-training from Scratch Does not Fit within Competition Compute Limits}
+Figure \ref{fig:pass_accuracy} shows the pass@2 and pass@10 performance of a pre-trained - from scratch - tiny recursive model evaluated on the ARC AGI II public evaluation set of 120 tasks. For the purpose of the ARC Prize 2025 competition, it is the pass@2 score that counts. Entrants are allowed to submit two output grid predictions per test example, and the best output grid is the one that counts.
+
+If one were to naively approach the pre-training-from-scratch approach of Fig. \ref{fig:pass_accuracy} in the competition, there would only be sufficient compute to conduct about 10-20k optimizer steps. This corresponds to the very left of the plot, where the pass@2 score nears zero. Granted, the compute required scales with epochs over the data and the number of tasks in the dataset. While the TRM paper trains on ~1,180 tasks, one might consider pre-training - at competition time - on only the 240 competition tasks. This would reduce compute requirements by about 5x, although there are no guarantees of similar performance if the training data is reduced in diversity. Moreover, even a 5x reduction in the necessary optimizer steps per epoch with a smaller number of tasks - assuming one holds epochs constant - would result in needing 200k+ optimizer steps, still well beyond the 10-20k possible in the limited compute environment.
+
+As such, the plot of pre-training performance in Fig. \ref{fig:pass_accuracy} tells us that pre-training from scratch requires too much compute for the competition environment, if one is to follow the recipe of the TRM paper. Of course, one could alternatively try to find a different model, dataset or pre-training recipe that performs as well and works with much less compute. Some effort was spent on this, and is described in \ref{sec:ablations}, but it was generally hard to match or exceed performance of the original TRM design, not to mention doing so with less compute.
+
+\subsection{Fine-tuning a Pre-trained Model Significantly Accelerates Adaptation}
+Figure \ref{fig:posttrain_pass_accuracy} is the fine-tuning analog of Fig. \ref{fig:pass_accuracy} for pre-training. Notice how the number of optimizer steps to achieve an improvement in performance is orders of magnitude lower when starting from a pre-trained model, than when pre-training from scratch.
+
+The highest gains in accuracy are achieved by full fine-tuning OR by training only embeddings for a first portion of epochs (either half or one quarter), followed by full-finetunig for the rest. Fine-tuning embeddings only OR LoRA fine-tuning (which additionally includes fine-tuning of embeddings) lead to low accuracy. Note that there is a signicant level of noise involved in these results. For example, LoRA+embeddings fine-tuning looks inferior to fine-tuning embeddings only in the pass@2 metrics. However, looking at a broader set of results - available in Weights and Biases - reveals that LoRA+embeddings slightly outperforms embeddings-only when looking at pass@1000, a somewhat less noisy indicator of performance.
+
+Clearly - and even with independent ARC tasks - it is possible to pre-shape the neural network in a manner that accelerates tuning on unseen tasks. This raises the question of what types of tasks are best used in pretraining to optimally shape the network for adaptation at competition time.
+
+\subsection{It remains unclear what diversity of pre-training tasks best shapes a network for post-training on unseen tasks}
+One heuristic in machine learning is that it can be better to train for longer on higher quality data than to expend that same amount of compute training for fewer epochs on a broader dataset of mixed quality.
+
+Given ARC AGI II tasks are significant harder than ARC AGI I tasks, and given ARC AGI II's public evaluation set is closely calibrated in difficulty to the semi-private and private evaluation sets, it was worth pre-training only on ARC AGI II difficulty tasks, rather than the larger dataset of 1,000 ARC AGI II training tasks, most of which are much easier.
+
+In practise, training for longer on this smaller but harder dataset (Filtered hard data, 1M epochs in \ref{tab:semi_private_scores}) resulted in worse performance than pretraining on the larger training dataset ("TRM paper replication"). It is hard to know exactly why this is the case, and noise cannot be ruled out as a cause, but it is suggestive that the ARC AGI II training set and/or the Concept ARC split of 160 tasks bring useful diversity or relevant concepts to the pre-training.
+
+The other pre-training approach shown in \ref{tab:semi_private_scores}, "Expanded data, 200k" involved training for longer than the original TRM paper, including test examples from ARC AGI II public evaluation tasks, and including additional concepts from the tama dataset \ref{cite: strandgaard here}, all in the hope that added data diversity and training time might help with performance. Here, the difference in performance with the original TRM baseline (4.25\% vs 6.67\%) is likely within noise. Perhaps it is not surprising there is little improvement due to the expanded dataset because the dataset is only a little larger than the original. "tama" concepts may overlap with concepts already present in ARC AGI II training data, and the inclusion of test examples from ARC AGI II evaluation data does not add new tasks, but only adds more examples per task. It is not obvious that training for longer would or would not have led to an improvement, but here it did not.
+
+\subsection{On the continued pre-training of pre-trained models}
+The trend of pass@2 and pass@10 scores in Fig.~\ref{fig:pass_accuracy} suggests that simply training for longer could lead to improved results. There is an important nuance with TRM's design, whereby task embeddings are trained for an index of tasks. If one does not save that mapping of tasks to embeddings, then one has no choice but to reinitialise and re-train the embeddings. Unfortunately, for the replication run (although not for the expanded data or filtered hard data pretraining runs) the embedding to task mappings were not saved (which involves saving the task and task augmentation dataset), and strict continued pre-training was not possible.
+
+Nonetheless, continued pre-training was tried for a further ~72k optimizer steps (roughly 72\% more steps) - with reinitialisation of embeddings - but this led to lower submission performance of 3.33\% compared to 6.67\%. As such, reinitialisation of embeddings may lead to partial model collapse and/or overfitting, perhaps as the embeddings learn more grid specifics rather than the general transformation.
 
 \subsection{On the use of augmentation-specific task embeddings}
 
@@ -237,6 +260,8 @@ It is interesting to ask whether:
     \item the model does learn that variants of the same task are related,
     \item it would be more efficient to use the same task\_id/embedding for all variants of a given task OR whether treating variants as independent tasks provides the model with some useful form of regularisation/generality during pre-training.
 \end{enumerate}
+
+\subsubsection{Using cosine similarity to measure the model's ability to encode related tasks}
 
 As a means of partially addressing (1), one might look at the cosine of the angle between task embeddings for i) variants of the same task and ii) between the base/original/unvaried form of different tasks. If the TRM does indeed learn to encode task variants similarly, perhaps one should expect a rise in the cosine between embeddings during pre- and post-training. With this as motivation, these measures were recorded during the pretraining of the TRM for 200k epochs on the extended dataset (extended to include 'tama' and ARC EVAL II evaluation test examples, see \ref{sec:methods}).
 
@@ -258,15 +283,31 @@ Figure \ref{fig:embedding_cosine_across} illustrates the evolution - over the co
     \label{fig:embedding_cosine_across}
 \end{figure}
 
-\subsection{On the benefit of joint training on multiiple tasks for compute efficiency}
+\subsubsection{Pre-training a model with explicitly encoded embeddings}
+Rather than assign an independent task id embedding to each augmented version of a task, one might instead assign the same task id to all variants of a given task, but then encode the augmentation type.
 
-If post training requires fewer optimizer steps than training from scratch -- to reach the same performance -- then clearly there is meaningful inter-task learning OR at least there are shared concepts involved in training TRM.
+For example, one might simply encode flips and rotatations by enumerating and embedding the 8 dihedral (d4 group) variants. To encode re-colours, one might build a look-up table covering the colour mapping pairs and train embeddings for that look-up table. In principle, this level of entropy can be captured in a single low-dimension embedding, perhaps no larger than 256, or even 128 dimensions.
 
-The effect can also be understood by pretraining on a single task versus 8 versus 120 tasks on a model of the same size. While it appears possible to achieve similar performance when training on a task individually, or combined with other tasks, it is more efficient -- again for a model of fixed size -- to jointly train on multiple tasks. Said differently, one can reach the same performance with less compute if one jointly trains on multiple tasks. As such, there appears to be joint concepts to be learned. It is possible of course that much of this joint learning involves primitive concepts relating to grid sizes and colours, as opposed to transformations themselves.
+This approach has the benefit of greatly reducing the number of model parameters by avoiding the need for a 512-dimension embedding for each task. While the TRM paper model has 7M parameters in its trunk, there are ~2.5 GB of parameters required to capture 1,000 augmentations of ~1,000 tasks (1k tasks x 1k augs/task x 512 dimensions = 512 M parameters). As such, when encoding each task augmentation individually, the TRM is more a 500M+ parameter model than a 7M parameter model. With explicit augmentation encodings, the size of the embeddings drops to 1k tasks x 512 dimensions = 512k parameters.
 
-\subsection{Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}
+One might further expect that explicitly encoding augmentations makes it easier for the model to learn, and potentially require less compute to reach convergence. However, this proved not to be the case, and the performance of models trained with explicit encodings for embeddings (detailed in the slim-in and base-in branches of the Trelis fork of TRM [reference github.com/TrelisResearch/TinyRecursiveModels]) was inferior to augmentation specific task embeddings (see Weights and Biases Project: https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch).
 
-...
+Perhaps the use of augmentation-specific task embeddings forces the model to generalise in a useful manner, but, then why isn't there stronger evidence of this in rising cosine similarity between in-task embeddings during pre-training?
+
+\subsection{Post-training Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}
+
+In their paper, Searching Latent Program Spaces, McFarlane and Bonnet \ref{} describe an approach not dissimilar to that involved in post-training a tiny recursive model. They cast the problem of solving ARC tasks as a search for a vector embedding that describes the transformation involved in a an ARC task, that program (or instruction) then being fed to a neural net and executed on a grid input.
+
+All of the steps of post-training a TRM are there in Searching Latent Program Space:
+\begin{enumerate}
+    \item There is the pretraining of a neural net on ARC tasks, to establish a landscape for that category of problems.
+    \item There is the post-training/fine-tuning on train examples from the test tasks, involving the search for the best latent (embedding) to describe the transformation at hand.
+\end{enumerate}
+
+Perhaps the performance gap between SLPS and TRM with post-training can be attributed to:
+1. The more complete set of augmentations used by TRM (dihedral group variants, recolours and translational augmentations),
+2. The fact that SLPS searches only for the best latent (i.e. trains only embeddings in TRM, but not other parameters). As such, SLPS finds the best combination of pre-trained primitives, but cannot add/encode new primitives.
+3. The recursive nature of the TRM's neural net, which allows for greatly increased effective depth while maintaining stability during training.
 
 \subsection{On the distribution of ARC AGI II tasks}
 
@@ -280,10 +321,38 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
     \item Model performance is sensitive to the amount of data that must be encoded. For the same model size, one cannot directly compare the performance pre or post training on 120 tasks versus 60 tasks.
 \end{itemize}
 
-\section{Ablations}
+\section{Other Ablations}\label{sec:ablations}
+Other ablations are reported here, rather informally. Where avaiable, links to Weights and Biases reports are provided.
+
 \subsection{On the method of embedding initialisation in post-training}
+When faced with unseen tasks, the TRM code base by default initialises new embeddings to the mean of pre-trained embeddings.
+
+An ablation was run to instead initialise embeddings to a Gaussian norm with the mean and variance of the pretrained embeddings. The hope was that by adding nonise to the initialisation, the model may overfit less during post-training. Howeever, using a Gaussian norm did not improve post-training performance over initialising all task id embeddings to the mean of those seen in pre-training.
+
+\subsection{On the variation of batch size during post training}
+Another heuristic in machine larning is that reducing batch size can sometimes introduce favourable noise and regularization that improves test performance.
+
+While the pre-training TRM replication was run with the same batch size (768) as the original paper and on 4xH100 SXM, the other two pre-training runs reported were run at at global batch size of 1536 and with the learning rate doubled in order to make full use of 8xH100 compute cores, and cut training time in half. It is possible this had an adverse effect on pass@2 performance.
+
+For post-training, ablations were run at smaller batch sizes of 96 and 32 (comapred to 384) in the hope of improving regularisation. However, performance was not improved, and, post-training takes longer per epoch as CUDA core utilisation is degraded. A selection of post-training results are visible here: https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch .
 
 \subsection{On improvements to majority voting}
+The TRM code base uses a simple form of majority voting among augmentations for a given task in order to rank top predictions for a task example. TRM does include a halting head designed to indicate whether a task has been solved (which primarily serves to stop recursions early during training). However, for ARC AGI II tasks, although the halting head does learn to detected solved train examples, it does not learn to effectively detect solved evaluation test examples. As such, unlike in Sudoku tasks, the halting head cannot (yet) be effectively used to improve voting among predictions from augmentations.
+
+\subsection{On the benefit of joint training on multiiple tasks for compute efficiency}
+
+If post training requires fewer optimizer steps than training from scratch -- to reach the same performance -- then clearly there is meaningful inter-task learning OR at least there are shared concepts involved in training TRM.
+
+The effect can also be understood by pretraining on a single task versus 8 versus 120 tasks on a model of the same size. While it appears possible to achieve similar performance when training on a task individually, or combined with other tasks, it is more efficient -- again for a model of fixed size -- to jointly train on multiple tasks. Said differently, one can reach the same performance with less compute if one jointly trains on multiple tasks. As such, there appears to be joint concepts to be learned. It is possible of course that much of this joint learning involves primitive concepts relating to grid sizes and colours, as opposed to transformations themselves.
+
+\section{On the use of smaller or larger model parameter counts}
+In the hope of reducing pre-training requirements, ablations were run where the characteristic dimension of the model, and of task id embeddings, was reduced from 512 down to 256 - resulting in a model of roughly one quarter of the original parameter count. The code is available in the 'slim' branch of the Trelis TRM fork, and results are shown in https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch . Smaller models were capable of scoring in the low single digits on ARC AGI II evaluation tasks, when comapred on an iso-compute basis. However, there was not enough clear advantage to justify pursuing the direction further.
+
+One ablation with a larger (1024 characteristic dimension) model was also run and is reported here: https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch . It appeared to trend similarly in pass@2 evaluation score to the base model on an iso-compute basis, but a longer and more thorough run is required to make firm conclusions.
+
+The limited ablations run leave unanswered the question of what the optimal model dimension should be, and what the optimal ratio of task embedding dimension relative to model trunk dimenstion (default ratio of 1) should be.
+
+Intutively, the size of the task embeddings relative to the model trunk dimension perhaps should be reflective of the relative entropy within task transformations versus that required to "execute" such tasks in the model trunk. Certainly the TRM design is very heavily weighted towards storing information in the task embeddings because there is a 512 dimension embedding not just for every task but also for every augmentation. For 1k tasks one has 500M+ parameters for embeddings and just 7M for the trunk.
 
 \section{Conclusion and future work}
 

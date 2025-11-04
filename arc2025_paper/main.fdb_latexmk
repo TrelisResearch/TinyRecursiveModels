@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1762246804.55984 "main.aux" "main.bbl" "main" 1762246855.80682 0
+["bibtex main"] 1762252386.49052 "main.aux" "main.bbl" "main" 1762252920.47177 0
   "./references.bib" 1762181956.80736 2831 7d3ac6c2d64eed78a910b0bfb3f6cfcd ""
   "/usr/local/texlive/2025/texmf-dist/bibtex/bst/natbib/plainnat.bst" 1233624470 26816 ffe5423d2019860bad9f54bc402fac15 ""
-  "main.aux" 1762246855.59344 9890 af2a93b8b1802cf4ac0f2d826334c50d "pdflatex"
+  "main.aux" 1762252920.27347 11217 dcf216c813d08cfe3869f3fea0b8694b "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1762246854.93995 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762246855.80697 0
-  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762246854.74835 38055 fa243119bf7f0b19a9401d77ce4b3286 ""
+["pdflatex"] 1762252919.73517 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762252920.47187 0
+  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762252919.57041 51560 467b92058ef18a7f16f891f5eb15e4bd ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/adobe/courier/pcrr7t.tfm" 1136768653 960 379cc0019370a9e0208a0a3f949f847a ""
@@ -121,10 +121,10 @@
   "figures/exact_accuracy.pdf" 1762184524.5069 15445 fe6989df858da916d20c8b57fa434686 ""
   "figures/pass_accuracy.pdf" 1762184524.50836 15807 7f3e2980a7d2b3d76acb60328caf72f5 ""
   "figures/posttrain_pass_accuracy.pdf" 1762183066.60549 19489 a26fa5a5d9fba265001b5a7020e6f84a ""
-  "main.aux" 1762246855.59344 9890 af2a93b8b1802cf4ac0f2d826334c50d "pdflatex"
-  "main.bbl" 1762246804.63286 2346 6bb691bac89886e3a65f0cf011a68c4e "bibtex main"
-  "main.out" 1762246855.59433 10080 d52e57d7c15a7b521e936caf0a0eb5d3 "pdflatex"
-  "main.tex" 1762246854.74835 38055 fa243119bf7f0b19a9401d77ce4b3286 ""
+  "main.aux" 1762252920.27347 11217 dcf216c813d08cfe3869f3fea0b8694b "pdflatex"
+  "main.bbl" 1762252386.55825 2346 6bb691bac89886e3a65f0cf011a68c4e "bibtex main"
+  "main.out" 1762252920.27405 13145 aec08fa9f6d8b0635f732a5a0b713c5e "pdflatex"
+  "main.tex" 1762252919.57041 51560 467b92058ef18a7f16f891f5eb15e4bd ""
   (generated)
   "main.aux"
   "main.log"
