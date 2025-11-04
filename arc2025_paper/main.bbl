@@ -5,8 +5,7 @@
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
-\bibitem[Chollet et~al.(2024)Chollet, Knoop, Kamradt, and
-  Landers]{Chollet2024ARCPrize}
+\bibitem[Chollet et~al.(2024)Chollet, Knoop, Kamradt, and Landers]{Chollet2024ARCPrize}
 Francois Chollet, Mike Knoop, Gregory Kamradt, and Bryan Landers.
 \newblock Arc prize 2024: Technical report.
 \newblock 2024.
@@ -16,8 +15,7 @@ Francois Chollet, Mike Knoop, Gregory Kamradt, and Bryan Landers.
 \bibitem[Gao(2025)]{Gao2025ARCAGI1TRM}
 Xin Gao.
 \newblock Tiny recursive models -- arc agi 1.
-\newblock
-  \url{https://huggingface.co/Sanjin2024/TinyRecursiveModels-ARC-AGI-1}, 2025.
+\newblock \url{https://huggingface.co/Sanjin2024/TinyRecursiveModels-ARC-AGI-1}, 2025.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Jolicoeur-Martineau(2025)]{JolicoeurMartineau2025TinyRecursive}
@@ -44,9 +42,7 @@ Konstantin Sch{\"u}rholt and {ARC Prize Team}.
 \bibitem[Strandgaard(2024)]{StrandgaardTamaDataset}
 Simon Strandgaard.
 \newblock Arc dataset collection: Tama split.
-\newblock
-  \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama},
-  2024.
+\newblock \url{https://github.com/neoneye/arc-dataset-collection/tree/main/dataset/arc-dataset-tama}, 2024.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{a}})]{Trelis2025ArcEval2Clean}
@@ -58,44 +54,37 @@ Trelis.
 \bibitem[Trelis(2025{\natexlab{b}})]{Trelis2025PosttrainEval2}
 Trelis.
 \newblock Arc prize post-training sweeps (arc-eval2-aug-1000-act-torch).
-\newblock \url{https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch},
-  2025{\natexlab{b}}.
+\newblock \url{https://wandb.ai/trelis/Arc-eval2-aug-1000-ACT-torch}, 2025{\natexlab{b}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{c}})]{Trelis2025PosttrainEval2Holdout}
 Trelis.
-\newblock Arc prize post-training hold-out diagnostics
-  (arc-evaluation2test-aug-1000-act-torch).
-\newblock \url{https://wandb.ai/trelis/Arc-evaluation2test-aug-1000-ACT-torch},
-  2025{\natexlab{c}}.
+\newblock Arc prize post-training hold-out diagnostics (arc-evaluation2test-aug-1000-act-torch).
+\newblock \url{https://wandb.ai/trelis/Arc-evaluation2test-aug-1000-ACT-torch}, 2025{\natexlab{c}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{d}})]{Trelis2025PretrainFinalRuns}
 Trelis.
 \newblock Arc prize extended pre-training runs (arc2-pretrain-final-act-torch).
-\newblock \url{https://wandb.ai/trelis/Arc2-pretrain-final-ACT-torch},
-  2025{\natexlab{d}}.
+\newblock \url{https://wandb.ai/trelis/Arc2-pretrain-final-ACT-torch}, 2025{\natexlab{d}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{e}})]{Trelis2025TRMARCAGII}
 Trelis.
 \newblock Tiny recursive models -- arc agi ii.
-\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II},
-  2025{\natexlab{e}}.
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II}, 2025{\natexlab{e}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{f}})]{Trelis2025TRMARCAGIIAll200k}
 Trelis.
 \newblock Tiny recursive models -- arc agi ii (all-200k).
-\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-all-200k},
-  2025{\natexlab{f}}.
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-all-200k}, 2025{\natexlab{f}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[Trelis(2025{\natexlab{g}})]{Trelis2025TRMARCAGIIHard1M}
 Trelis.
 \newblock Tiny recursive models -- arc agi ii (hard-1m).
-\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-hard-1M},
-  2025{\natexlab{g}}.
+\newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-hard-1M}, 2025{\natexlab{g}}.
 \newblock Accessed: 2025-11-03.
 
 \bibitem[{Trelis Research}(2025)]{TrelisResearchTRM}
@@ -104,10 +93,8 @@ Trelis.
 \newblock \url{https://github.com/TrelisResearch/TinyRecursiveModels}, 2025.
 \newblock Accessed: 2025-11-03.
 
-\bibitem[Wang et~al.(2025)Wang, Li, Sun, Chen, Liu, Wu, Lu, Song, and
-  Abbasi-Yadkori]{Wang2025HierarchicalReasoning}
-Guanzhi Wang, Jianing Li, Yuxiao Sun, Xi~Chen, Chuhan Liu, Yuan Wu, Mingyu Lu,
-  Shuran Song, and Yasin Abbasi-Yadkori.
+\bibitem[Wang et~al.(2025)Wang, Li, Sun, Chen, Liu, Wu, Lu, Song, and Abbasi-Yadkori]{Wang2025HierarchicalReasoning}
+Guanzhi Wang, Jianing Li, Yuxiao Sun, Xi~Chen, Chuhan Liu, Yuan Wu, Mingyu Lu, Shuran Song, and Yasin Abbasi-Yadkori.
 \newblock Hierarchical reasoning model.
 \newblock 2025.
 \newblock \doi{10.48550/arXiv.2506.21734}.

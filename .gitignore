@@ -26,3 +26,4 @@ build/
 wandb/
 checkpoints/
 !kaggle/combined/*.json
+arxiv_upload/*
