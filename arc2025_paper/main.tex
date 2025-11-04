@@ -35,7 +35,7 @@ In 2025, ARC AGI II tasks were released of significantly higher difficulty than 
 Compared to the ~1B to 7B parameter deep transformer models of 2024, which employed pre-training followed by competition-time fine-tuning, a new recursive model approach emerged in 2025 with the HRM paper \cite{Wang2025HierarchicalReasoning}, taking a number of new directions:
 \begin{enumerate}
     \item A smaller model size, well less than 100M parameters
-    \item The use of recursive layers rather than a single once through deep network
+    \item The use of recursive layers rather than a single once-through deep network
     \item A focus on training from scratch on competition tasks, rather than first pre-training on ARC-like tasks
 \end{enumerate}
 
@@ -117,7 +117,7 @@ Four approaches to post-training were conducted:
 
 All post-training runs were conducted in the same manner and with the same hyperparameters as the pre-training runs, but with the following differences:
 \begin{enumerate}
-    \item At the start of each pre-training run, the model was initialised from a pre-trained model.
+    \item At the start of each post-training run, the model was initialised from a pre-trained model.
     \item Owing to lower total VRAM available on 4xL4s compared to 4xH100 SXMs, a global batch size of 384 was used instead of 768 for pre-training. Accordingly, the learning rate for the model trunk and for the embeddings were doubled (to 2e-4 and 2e-2, respectively).
     \item Owing to the compute limitation at competition time, training was run for only 15,000 optimizer steps, rather than $\sim$750k in the original pre-training.
     \item Post-training was conducted only on train examples from test tasks (either competition tasks OR withheld tasks from the ARC AGI II public evaluation split). No additional data was mixed in. For competition runs, this means running on semi-private test tasks, which can only be done by making a formal submission to the ARC Prize 2025 competition. One submission is allowed daily.
@@ -139,7 +139,7 @@ As an attempt at simulating post-training performance on an ARC AGI II pre-train
 This was done, but the signal from only ten test tasks is weak, noisy and uninformative.
 
 \subsubsection{Post-training an ARC AGI II pre-trained model via a formal ARC AGI 2025 Submission}
-A positive result from pre-training an ARC AGI I model on ARC AGI II data movitvates taking an ARC AGI II pre-trained model (pre-trained on data including ARC AGI II public eval training tasks) and submitting that for post-training on the semi-private tasks in the competition. The assumption is that an ARC AGI II pre-trained model (i.e. trained on ARC AGI II public eval data) is more in-distribution for the semi-private eval tasks than a model pre-trained only on what are much easier ARC AGI I tasks. Unfortunately, one cannot take an ARC AGI II pre-trained model and easily simulate post-training because the train example pairs from evaluation tasks are already within the pre-training data.
+A positive result from pre-training an ARC AGI I model on ARC AGI II data motivates taking an ARC AGI II pre-trained model (pre-trained on data including ARC AGI II public eval training tasks) and submitting that for post-training on the semi-private tasks in the competition. The assumption is that an ARC AGI II pre-trained model (i.e. trained on ARC AGI II public eval data) is more in-distribution for the semi-private eval tasks than a model pre-trained only on what are much easier ARC AGI I tasks. Unfortunately, one cannot take an ARC AGI II pre-trained model and easily simulate post-training because the train example pairs from evaluation tasks are already within the pre-training data.
 
 For the purpose of the competition, there were three pre-trained models submitted (the same three listed in the pre-training section):
 \begin{enumerate}
@@ -159,7 +159,7 @@ Full fine-tuning involved updating all model parameters, as in pre-training.
 \subsubsection{Fine-tuning of embeddings only.}
 In TRM, each task and any augmented variant of that task is assigned a task id and has its own trainable embedding. At the start of post-training, the model sees a new set of tasks and variants, and so a new set of task ids and set of embeddings are initialised. These embeddings start the post-training process untrained, while the rest of the model parameters (attention, MLPs and heads) start in a pre-trained state.
 
-As such, at the start of post-training, the task embeddings - which might be thought of as a description of the transformation involved in a given task variant - are out of sync with the model's trunk. With this as motivation, it appears reasonable to train only the embeddings to see whether they might be adapted by post-training in a manner that allows the model trunk to "execute" a program described by a newly trained task id. Were the training of embeddings sufficient, this might suggest that the trunk has the required tools to solve ARC tasks and the embedding need only be trained to signal to the trunk what tools should be used for the task at hand. There is a close analogy here with the Searching Latent Programs Spaces approach of Bonnet and MacFarlane \cite{Macfarlane2024SearchingLatent}, and more is discused on that below.
+As such, at the start of post-training, the task embeddings - which might be thought of as a description of the transformation involved in a given task variant - are out of sync with the model's trunk. With this as motivation, it appears reasonable to train only the embeddings to see whether they might be adapted by post-training in a manner that allows the model trunk to "execute" a program described by a newly trained task id. Were the training of embeddings sufficient, this might suggest that the trunk has the required tools to solve ARC tasks and the embedding need only be trained to signal to the trunk what tools should be used for the task at hand. There is a close analogy here with the Searching Latent Programs Spaces approach of Bonnet and MacFarlane \cite{Macfarlane2024SearchingLatent}, and more is discussed on that below.
 
 \subsubsection{Fine-tuning of embeddings followed by full fine-tuning}
 As it turns out, post-training only of the embeddings results in a score of near zero on held out tasks. This motivates the idea of first training only the embeddings for some epochs (one quarter of total post-training epochs) followed by full fine-tuning for the remainder of epochs.
@@ -253,7 +253,7 @@ In practise, training for longer on this smaller but harder dataset (Filtered ha
 The other pre-training approach shown in Tab.~\ref{tab:semi_private_scores}, "Expanded data, 200k" involved training for longer than the original TRM paper, including test examples from ARC AGI II public evaluation tasks, and including additional concepts from the tama dataset \cite{StrandgaardTamaDataset}, all in the hope that added data diversity and training time might help with performance. Here, the difference in performance with the original TRM baseline (4.25\% vs 6.67\%) is likely within noise. Perhaps it is not surprising there is little improvement due to the expanded dataset because the dataset is only 50 tasks larger than the original TRM paper. Tama dataset concepts may overlap with concepts already present in ARC AGI II training data, and the inclusion of test examples from ARC AGI II evaluation data does not add new tasks, but only adds more examples per task.
 
 \subsection{On the continued pre-training of pre-trained models}
-The trend of pass@2 and pass@10 scores in Fig.~\ref{fig:pass_accuracy} suggests that simply training for longer could lead to improved results. There is an important nuance with TRM's design, whereby task embeddings are trained for an index of tasks. If one does not save that mapping of tasks to embeddings, then one has no choice but to reinitialise and re-train the embeddings. Unfortunately, for the replication run (although not for the expanded data or filtered hard data pretraining runs) the embedding to task mappings were not saved (which involves saving the task and task augmentation dataset), and strict continued pre-training was not possible.
+The trend of pass@2 and pass@1000 scores in Fig.~\ref{fig:pass_accuracy} suggests that simply training for longer could lead to improved results. There is an important nuance with TRM's design, whereby task embeddings are trained for an index of tasks. If one does not save that mapping of tasks to embeddings, then one has no choice but to reinitialise and re-train the embeddings. Unfortunately, for the replication run (although not for the expanded data or filtered hard data pretraining runs) the embedding to task mappings were not saved (which involves saving the task and task augmentation dataset), and strict continued pre-training was not possible.
 
 Nonetheless, continued pre-training was tried for a further ~72k optimizer steps (roughly 10\% more steps) - with reinitialisation of embeddings - but this led to lower submission performance of 3.33\% compared to 6.67\%. As such, reinitialisation of embeddings may lead to partial model collapse and/or overfitting, perhaps as the embeddings learn more grid specifics rather than the general transformations.
 
@@ -330,7 +330,7 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 \end{itemize}
 
 \section{Other Ablations}\label{sec:ablations}
-Other ablations are reported here, rather informally. Where avaiable, links to Weights and Biases reports are provided.
+Other ablations are reported here, rather informally. Where available, links to Weights and Biases reports are provided.
 
 \subsection{On the method of embedding initialisation in post-training}
 When faced with unseen tasks, the TRM code base by default initialises new embeddings to the mean of pre-trained embeddings.
