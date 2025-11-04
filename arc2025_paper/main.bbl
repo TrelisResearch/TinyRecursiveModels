@@ -1,4 +1,4 @@
-\begin{thebibliography}{8}
+\begin{thebibliography}{11}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -17,6 +17,14 @@ Alex Jolicoeur-Martineau.
 \newblock 2025.
 \newblock \doi{10.48550/arXiv.2510.04871}.
 \newblock URL \url{https://doi.org/10.48550/arXiv.2510.04871}.
+
+\bibitem[Macfarlane and Bonnet(2024)]{Macfarlane2024SearchingLatent}
+Matthew~V. Macfarlane and Cl{\'e}ment Bonnet.
+\newblock Searching latent program spaces.
+\newblock 2024.
+\newblock \doi{10.48550/arXiv.2411.08706}.
+\newblock URL \url{https://arxiv.org/abs/2411.08706}.
+\newblock Accepted as Spotlight at NeurIPS 2025.
 
 \bibitem[Strandgaard(2024)]{StrandgaardTamaDataset}
 Simon Strandgaard.
@@ -53,5 +61,18 @@ Trelis.
 \newblock Tiny recursive models -- arc agi ii (hard-1m).
 \newblock \url{https://huggingface.co/Trelis/TRM-ARC-AGI-II-hard-1M}, 2025{\natexlab{e}}.
 \newblock Accessed: 2025-11-03.
+
+\bibitem[{Trelis Research}(2025)]{TrelisResearchTRM}
+{Trelis Research}.
+\newblock Tinyrecursivemodels (trelis fork).
+\newblock \url{https://github.com/TrelisResearch/TinyRecursiveModels}, 2025.
+\newblock Accessed: 2025-11-03.
+
+\bibitem[Wang et~al.(2025)Wang, Li, Sun, Chen, Liu, Wu, Lu, Song, and Abbasi-Yadkori]{Wang2025HierarchicalReasoning}
+Guanzhi Wang, Jianing Li, Yuxiao Sun, Xi~Chen, Chuhan Liu, Yuan Wu, Mingyu Lu, Shuran Song, and Yasin Abbasi-Yadkori.
+\newblock Hierarchical reasoning model.
+\newblock 2025.
+\newblock \doi{10.48550/arXiv.2506.21734}.
+\newblock URL \url{https://doi.org/10.48550/arXiv.2506.21734}.
 
 \end{thebibliography}

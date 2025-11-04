@@ -17,6 +17,10 @@
 
 \maketitle
 
+\begin{abstract}
+Prior to the close of the 2025 ARC Prize competition, the leading open source approach - known as TRM, for Tiny Recursive Models - involved training a 7M parameter recursive neural network on augmented variants of ARC tasks. That approach scored approximately 7.8\% on the public ARC AGI II evaluation set, but required a level of compute far in excess of what is allowed during the competition. This paper shows that, by starting from a tiny recursive model, pre-trained on public ARC tasks, one may gain a large enough head start for fine-tuning on competition tasks to be effective in the 12 hours allows on four L4 GPUs during a competition submission. Specifically, a model is pretrained on public tasks for 700k+ optimizer steps over 48 hours on 4xH100 SXM GPUs and obtains a ~10\% score on the public evaluation set. That model is then post-trained in just 12,500 gradient steps during the competition and reaches a score of 6.67\% on semi-private evaluation tasks. Notably, such post-training performance is achieved by full-fine tuning of the tiny model, not LoRA fine-tuning or fine-tuning of task embeddings alone.
+\end{abstract}
+
 \section{Introduction}
 
 \subsection{Description and Brief History of the ARC Prize}
@@ -28,7 +32,7 @@ ARC AGI II brought a series of more difficult tasks where both brute force using
 
 \subsection{Tiny Recursive Models as a Basis for Solving ARC AGI II Tasks}
 
-Compared to the ~1-7B parameter deep transformer models of 2024, which used both pre-training and competition-time fine-tuning, the recursive model approach that emerged with the HRM paper [reference] took a number of new directions:
+Compared to the ~1B to 7B parameter deep transformer models of 2024, which used both pre-training and competition-time fine-tuning, the recursive model approach that emerged with the HRM paper [reference] took a number of new directions:
 \begin{enumerate}
     \item A smaller model size, well less than 100M parameters
     \item The use of recursive layers rather than a single once through deep network
@@ -37,7 +41,7 @@ Compared to the ~1-7B parameter deep transformer models of 2024, which used both
 
 This approach scored ~5\% on ARC AGI II tasks, which, while low in absolute terms, constituted the leading open source approach at the time, and, was perhaps surprising for a model of such small size.
 
-This HRM (Hierarchical Reasoning Model, hierarchical because it involves a hierarchy of recursive loops) was soon improved on in the Tiny Recursive Models (TRM) \ref{} paper by reducing the architecture to a single neural net of 7M parameters, plus task embeddings. Although involving fewer model parameters, this updated approach improved in performance, reaching ~7.8\% on ARC AGI II tasks.
+This HRM (Hierarchical Reasoning Model \cite{Wang2025HierarchicalReasoning}, hierarchical because it involves a hierarchy of recursive loops) was soon improved on in the Tiny Recursive Models (TRM) \cite{JolicoeurMartineau2025TinyRecursive} paper by reducing the architecture to a single neural net of 7M parameters, plus task embeddings. Although involving fewer model parameters, this updated approach improved in performance, reaching ~7.8\% on ARC AGI II tasks.
 
 While, at the time the leading approach, this TRM approach required pre-training on four H100 GPUS for over 48 hours - well in excess of the compute allowed in the ARC Prize 2025 competition. This gave motivation to the question of whether and how the tiny recursive model approach could be improved in compute efficiency, and valuable for a competition entry.
 
@@ -61,7 +65,7 @@ Three models were pre-trained. A first model model was trained almost exactly in
 
 \subsubsection{Original Paper Replication - 100k epochs}
 
-A TRM was trained in close alignment with the original paper, but with only 4 lower reasoning cycles instead of 6 reported in the paper. This deviation was unintentional and resulted from a commit in the TRM Github repository using that same value. Interestingly, other ablations by Xin Gao (reference here) and Konstantin Schuerholt also use this value of 4.
+A TRM was trained in close alignment with the original paper, but with only 4 lower reasoning cycles instead of 6 reported in the paper. This deviation was unintentional and resulted from a commit in the TRM Github repository using that same value. Interestingly, other ablations by Xin Gao \cite{Gao2025ARCAGI1TRM} and Konstantin Schuerholt also use this value of 4.
 
 The data mix matched that of the original paper and included:
 \begin{itemize}
@@ -244,7 +248,7 @@ Given ARC AGI II tasks are significant harder than ARC AGI I tasks, and given AR
 
 In practise, training for longer on this smaller but harder dataset (Filtered hard data, 1M epochs in \ref{tab:semi_private_scores}) resulted in worse performance than pretraining on the larger training dataset ("TRM paper replication"). It is hard to know exactly why this is the case, and noise cannot be ruled out as a cause, but it is suggestive that the ARC AGI II training set and/or the Concept ARC split of 160 tasks bring useful diversity or relevant concepts to the pre-training.
 
-The other pre-training approach shown in \ref{tab:semi_private_scores}, "Expanded data, 200k" involved training for longer than the original TRM paper, including test examples from ARC AGI II public evaluation tasks, and including additional concepts from the tama dataset \ref{cite: strandgaard here}, all in the hope that added data diversity and training time might help with performance. Here, the difference in performance with the original TRM baseline (4.25\% vs 6.67\%) is likely within noise. Perhaps it is not surprising there is little improvement due to the expanded dataset because the dataset is only a little larger than the original. "tama" concepts may overlap with concepts already present in ARC AGI II training data, and the inclusion of test examples from ARC AGI II evaluation data does not add new tasks, but only adds more examples per task. It is not obvious that training for longer would or would not have led to an improvement, but here it did not.
+The other pre-training approach shown in \ref{tab:semi_private_scores}, "Expanded data, 200k" involved training for longer than the original TRM paper, including test examples from ARC AGI II public evaluation tasks, and including additional concepts from the tama dataset \cite{StrandgaardTamaDataset}, all in the hope that added data diversity and training time might help with performance. Here, the difference in performance with the original TRM baseline (4.25\% vs 6.67\%) is likely within noise. Perhaps it is not surprising there is little improvement due to the expanded dataset because the dataset is only a little larger than the original. "tama" concepts may overlap with concepts already present in ARC AGI II training data, and the inclusion of test examples from ARC AGI II evaluation data does not add new tasks, but only adds more examples per task. It is not obvious that training for longer would or would not have led to an improvement, but here it did not.
 
 \subsection{On the continued pre-training of pre-trained models}
 The trend of pass@2 and pass@10 scores in Fig.~\ref{fig:pass_accuracy} suggests that simply training for longer could lead to improved results. There is an important nuance with TRM's design, whereby task embeddings are trained for an index of tasks. If one does not save that mapping of tasks to embeddings, then one has no choice but to reinitialise and re-train the embeddings. Unfortunately, for the replication run (although not for the expanded data or filtered hard data pretraining runs) the embedding to task mappings were not saved (which involves saving the task and task augmentation dataset), and strict continued pre-training was not possible.
@@ -290,13 +294,13 @@ For example, one might simply encode flips and rotatations by enumerating and em
 
 This approach has the benefit of greatly reducing the number of model parameters by avoiding the need for a 512-dimension embedding for each task. While the TRM paper model has 7M parameters in its trunk, there are ~2.5 GB of parameters required to capture 1,000 augmentations of ~1,000 tasks (1k tasks x 1k augs/task x 512 dimensions = 512 M parameters). As such, when encoding each task augmentation individually, the TRM is more a 500M+ parameter model than a 7M parameter model. With explicit augmentation encodings, the size of the embeddings drops to 1k tasks x 512 dimensions = 512k parameters.
 
-One might further expect that explicitly encoding augmentations makes it easier for the model to learn, and potentially require less compute to reach convergence. However, this proved not to be the case, and the performance of models trained with explicit encodings for embeddings (detailed in the slim-in and base-in branches of the Trelis fork of TRM [reference github.com/TrelisResearch/TinyRecursiveModels]) was inferior to augmentation specific task embeddings (see Weights and Biases Project: https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch).
+One might further expect that explicitly encoding augmentations makes it easier for the model to learn, and potentially require less compute to reach convergence. However, this proved not to be the case, and the performance of models trained with explicit encodings for embeddings (detailed in the slim-in and base-in branches of the Trelis fork of TRM \cite{TrelisResearchTRM}) was inferior to augmentation specific task embeddings (see Weights and Biases Project: https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch).
 
 Perhaps the use of augmentation-specific task embeddings forces the model to generalise in a useful manner, but, then why isn't there stronger evidence of this in rising cosine similarity between in-task embeddings during pre-training?
 
 \subsection{Post-training Tiny Recursive Models as a Variant of Searching Latent Program Space (SLPS)}
 
-In their paper, Searching Latent Program Spaces, McFarlane and Bonnet \ref{} describe an approach not dissimilar to that involved in post-training a tiny recursive model. They cast the problem of solving ARC tasks as a search for a vector embedding that describes the transformation involved in a an ARC task, that program (or instruction) then being fed to a neural net and executed on a grid input.
+In their paper, Searching Latent Program Spaces, McFarlane and Bonnet \cite{Macfarlane2024SearchingLatent} describe an approach not dissimilar to that involved in post-training a tiny recursive model. They cast the problem of solving ARC tasks as a search for a vector embedding that describes the transformation involved in a an ARC task, that program (or instruction) then being fed to a neural net and executed on a grid input.
 
 All of the steps of post-training a TRM are there in Searching Latent Program Space:
 \begin{enumerate}
@@ -346,7 +350,7 @@ If post training requires fewer optimizer steps than training from scratch -- to
 The effect can also be understood by pretraining on a single task versus 8 versus 120 tasks on a model of the same size. While it appears possible to achieve similar performance when training on a task individually, or combined with other tasks, it is more efficient -- again for a model of fixed size -- to jointly train on multiple tasks. Said differently, one can reach the same performance with less compute if one jointly trains on multiple tasks. As such, there appears to be joint concepts to be learned. It is possible of course that much of this joint learning involves primitive concepts relating to grid sizes and colours, as opposed to transformations themselves.
 
 \section{On the use of smaller or larger model parameter counts}
-In the hope of reducing pre-training requirements, ablations were run where the characteristic dimension of the model, and of task id embeddings, was reduced from 512 down to 256 - resulting in a model of roughly one quarter of the original parameter count. The code is available in the 'slim' branch of the Trelis TRM fork, and results are shown in https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch . Smaller models were capable of scoring in the low single digits on ARC AGI II evaluation tasks, when comapred on an iso-compute basis. However, there was not enough clear advantage to justify pursuing the direction further.
+In the hope of reducing pre-training requirements, ablations were run where the characteristic dimension of the model, and of task id embeddings, was reduced from 512 down to 256 - resulting in a model of roughly one quarter of the original parameter count. The code is available in the 'slim' branch of the Trelis TRM fork \cite{TrelisResearchTRM}, and results are shown in https://wandb.ai/trelis/Arc2ethard-aug-1000-ACT-torch . Smaller models were capable of scoring in the low single digits on ARC AGI II evaluation tasks, when comapred on an iso-compute basis. However, there was not enough clear advantage to justify pursuing the direction further.
 
 One ablation with a larger (1024 characteristic dimension) model was also run and is reported here: https://wandb.ai/trelis/Arc2concept-aug-1000-ACT-torch . It appeared to trend similarly in pass@2 evaluation score to the base model on an iso-compute basis, but a longer and more thorough run is required to make firm conclusions.
 

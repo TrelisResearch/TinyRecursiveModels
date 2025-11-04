@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1762252386.49052 "main.aux" "main.bbl" "main" 1762252920.47177 0
-  "./references.bib" 1762181956.80736 2831 7d3ac6c2d64eed78a910b0bfb3f6cfcd ""
+["bibtex main"] 1762254409.05929 "main.aux" "main.bbl" "main" 1762254462.69876 0
+  "./references.bib" 1762253242.14404 3772 92f0ee1d4bb3a2de980a1e148d63387d ""
   "/usr/local/texlive/2025/texmf-dist/bibtex/bst/natbib/plainnat.bst" 1233624470 26816 ffe5423d2019860bad9f54bc402fac15 ""
-  "main.aux" 1762252920.27347 11217 dcf216c813d08cfe3869f3fea0b8694b "pdflatex"
+  "main.aux" 1762254462.53138 11740 26a3e9294fa64448f860b3fc3a420cfd "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1762252919.73517 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762252920.47187 0
-  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762252919.57041 51560 467b92058ef18a7f16f891f5eb15e4bd ""
+["pdflatex"] 1762254462.00899 "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" "main.pdf" "main" 1762254462.69887 0
+  "/Users/ronanmcgovern/TR/TinyRecursiveModels/arc2025_paper/main.tex" 1762254461.83148 52827 575563b2b09e8ebff07ccbad9e42e4ae ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/adobe/courier/pcrr7t.tfm" 1136768653 960 379cc0019370a9e0208a0a3f949f847a ""
@@ -121,10 +121,10 @@
   "figures/exact_accuracy.pdf" 1762184524.5069 15445 fe6989df858da916d20c8b57fa434686 ""
   "figures/pass_accuracy.pdf" 1762184524.50836 15807 7f3e2980a7d2b3d76acb60328caf72f5 ""
   "figures/posttrain_pass_accuracy.pdf" 1762183066.60549 19489 a26fa5a5d9fba265001b5a7020e6f84a ""
-  "main.aux" 1762252920.27347 11217 dcf216c813d08cfe3869f3fea0b8694b "pdflatex"
-  "main.bbl" 1762252386.55825 2346 6bb691bac89886e3a65f0cf011a68c4e "bibtex main"
-  "main.out" 1762252920.27405 13145 aec08fa9f6d8b0635f732a5a0b713c5e "pdflatex"
-  "main.tex" 1762252919.57041 51560 467b92058ef18a7f16f891f5eb15e4bd ""
+  "main.aux" 1762254462.53138 11740 26a3e9294fa64448f860b3fc3a420cfd "pdflatex"
+  "main.bbl" 1762254409.12453 3293 2ea0a9238d8496a43ebff4fc27383e81 "bibtex main"
+  "main.out" 1762254462.53213 13145 aec08fa9f6d8b0635f732a5a0b713c5e "pdflatex"
+  "main.tex" 1762254461.83148 52827 575563b2b09e8ebff07ccbad9e42e4ae ""
   (generated)
   "main.aux"
   "main.log"
