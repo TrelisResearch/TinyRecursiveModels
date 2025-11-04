@@ -19,18 +19,38 @@
 
 \section{Introduction}
 
+\subsection{Description and Brief History of the ARC Prize}
+The ARC (Abstract Reasoning Challenge) Prize is a competition to efficiently solve unseen abstract tasks using computers. ARC tasks are designed to be solvable by humans but challenging for programable approaches. The competition imposes a limit on the amount of compute that may be used to solve tasks, which is why approaches must not just generalise to unseen tasks but also solve them efficiently.
+
+Historically, the leading approach to solving the first series of ARC tasks (ARC AGI I) was a brute force search - with important heuristics - through a library of operations (e.g. flip, rotate, repattern) [reference ice-cuber]. This was outperformed by a number of entries in the 2024 competition, involving pre-training a deep transformer model in the single billion parameter range on ARC training tasks prior to the competition, followed by post-training on the test-time tasks within sandboxed competition environment with limited compute. This brought scores on ARC AGI I from roughly 20-30\% up into the 40\%+ range.
+
+ARC AGI II brought a series of more difficult tasks where both brute force using a library of operations or using a single billion parameter transformer with pre- and post- training resulted in near zero performance. At the time of the release of this new test set, leading large language models far exceeding the compute limits of the competition, also struggled to score beyond a few percent on the updated benchmark - although, by late 2025, reasoning language models were scoring in the low double digits. 
+
 \subsection{Tiny Recursive Models as a Basis for Solving ARC AGI II Tasks}
 
-...
+Compared to the ~1-7B parameter deep transformer models of 2024, which used both pre-training and competition-time fine-tuning, the recursive model approach that emerged with the HRM paper [reference] took a number of new directions:
+\begin{enumerate}
+    \item A smaller model size, well less than 100M parameters
+    \item The use of recursive layers rather than a single once through deep network
+    \item A focus on training from scratch on competition tasks, rather than first pre-training on ARC-like tasks
+\end{enumerate}
 
-\subsection{Fitting within Compute Requirements for the ARC Prize 2025 Competition}
+This approach scored ~5\% on ARC AGI II tasks, which, while low in absolute terms, constituted the leading open source approach at the time, and, was perhaps surprising for a model of such small size.
 
-The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. As a reference point, TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, such pretraining takes approximately 750k optimizer steps, with a global batch size of 768, while the competition runtime allows for only about 15k optimizer steps at a batch size of 392, given that one must also allow time for inference/evaluation.
+This HRM (Hierarchical Reasoning Model, hierarchical because it involves a hierarchy of recursive loops) was soon improved on in the Tiny Recursive Models (TRM) \ref{} paper by reducing the architecture to a single neural net of 7M parameters, plus task embeddings. Although involving fewer model parameters, this updated approach improved in performance, reaching ~7.8\% on ARC AGI II tasks.
 
-The premise of Test-time adaptation is that, by conducting pre-training prior to competition submissions, one can achieve better performance with fine-tuning than one could conducting pre-training from scratch.
+While, at the time the leading approach, this TRM approach required pre-training on four H100 GPUS for over 48 hours - well in excess of the compute allowed in the ARC Prize 2025 competition. This gave motivation to the question of whether and how the tiny recursive model approach could be improved in compute efficiency, and valuable for a competition entry.
+
+\subsection{Fitting a Tiny Recursive Model Approach within Compute Requirements for the ARC Prize 2025 Competition}
+
+The ARC Prize 2025 competition allows for the use of four L4 accelerators for twelve hours. TRM pre-training on 1,120 tasks for 100k epochs takes roughly 48 hours on 4xH100 SXM GPUs. Accounting for a factor of roughly 8x between bf16 flops on a H100 SXM versus an L4 accelerator, there is only about 1/8 x 1/4 = 1/32th of the compute necessary to complete full pre-training on this model size. Cast in different terms, pretraining with the TRM paper's approach takes approximately 750k optimizer steps with a global batch size of 768, while the competition runtime allows for only about 15k optimizer steps at a batch size of 392, given that one must also allow time for inference/evaluation.
+
+Rather than train a model from scratch, an obvious approach is to instead fine-tune a model that has been pre-trained on public ARC tasks. There is no limit on the compute that can be used to pre-train such a model in advance of submission, although, the amount of publicly available ARC tasks, in particular tasks calibrated to ARC AGI II difficulty is very small. The question is, given competition tasks are new and unseen, and, given the model's capacity is small relative to pre-training and competition fine-tuning approaches of 2024, whether using a pre-trained TRM model can give a head start to fine-tuning at all?
 
 \subsection{Approach and Contribution}
-...
+This paper demonstrates that starting from a pre-trained tiny recursive model significantly accelerates training on new, unseen tasks. The performance of such a fine-tuned model trends towards that of pre-training from scratch, although has not been found to quite reach or exceed the level of full pre-training performance - at least given the competition compute limits. Interestingly, the best performance was achieved by fully fine-tuning the pre-trained model, not by LoRA fine-tuning or by training the task id embeddings. Specifically, a pre-trained model achieving ~10\% on the ARC AGI II public evaluation split was capable of achieving 6.67\% when fine-tuned on unseen semi-private tasks in the Kaggle competition environment.
+
+Attempts were also made to improve the performance by using a stronger pre-trained model - trained on more and/or higher quality data for longer. These attempts were unsuccessful, although it remains possible - or even likely - that different choices of architecture, dataset or training hyperparameters could still lead to better results.
 
 \section{Methods}\label{sec:methods}
 
@@ -135,7 +155,7 @@ In TRM, each task and any augmented variant of that task is assigned a task id a
 
 As such, at the start of post-training, the task embeddings - which might be thought of as a description of the transformation involved in a given task variant - are out of sync with the model's trunk. With this as motiviation, it appears reasonable to train only the embeddings to see whether they might be adapted by post-training in a manner that allows the model trunk to "execute" a program described by a newly trained task id. Were the training of embeddings sufficient, this might suggest that the trunk has the required tools to solve ARC tasks and the embedding need only be trained to signal to the trunk what tools should be used for the task at hand.
 
-\subsubsection{Fine-tuning of embeddings and then full-finetuning}
+\subsubsection{Fine-tuning of embeddings followed by full fine-tuning}
 As it turns out, post-training only of the embeddings results in a score of near zero on held out tasks. This motivates the idea of first training only the embeddings for some epochs (one quarter of total post-training epochs) followed by full fine-tuning for the remainder of epochs to allow for full fine-tuning.
 
 \subsubsection{LoRA fine-tuning of the trunk plus embeddings fine-tuning}
@@ -270,6 +290,15 @@ The closest approximation of this would perhaps have been to pre-train on 60 of 
 Full fine-tuning allowed a pre-trained tiny recursive transformer model to be efficiently adapted in the compute-limited environment of the ARC AGI II competition. Effective adaptation appears to require updating both task id embeddings AND the trunk of the model at competition time.
 
 Currently, the use of tiny recursive models has been limited to single or low double digit scores on ARC AGI II tasks. While post-training of a pretrained TRM is much more compute efficient than pre-training from scratch, it has not been shown that post-training can exceed or reach the performance achieved in pre-training. That pass@1000 metrics reach well above pass@2 metrics, often above 20\% on ARC AGI II difficulty tasks, suggests that performance improvements are possible. It remains an open question how far performance could be pushed through model size or hyper parameter improvements with or without further data additions or augmentations.
+
+Future work may consider:
+\begin{enumerate}
+    \item Closer visual inspection of the tasks solved versus not solved by TRM-type approaches. Is it conceivable that those tasks are solved owing to the types of augmentations (rotate, flip, translate, re-colour) that are applied? If so, are there other augmentations (e.g. shearing, re-patterning) that might assist in solving more tasks?
+    \item What size model (specifically, size of hidden dimension) is most compute efficient for pretraining on a fixed number of tasks? Chinchilla laws for LLMs suggest that larger models may be more compute efficient (on a training compute basis) than smaller models. Such ablations were tried but, given the compute budget, it was not possible to reach a firm conclusion on the best model size.
+    \item For a constant size model hidden dimension, does increasing or decreasing the embedding dimension improve performance. Currently, it appears that the embedding dimension is not capturing similarities between task variants. Does this suggest the task id embedding is too large or too small?
+    \item Improved optimisation of hyperparameters, especially the number of higher and lower loops that control effective model depth. Does increasing the level of recursion increase or decrease compute efficiency when holding the effective depth constant?
+    \item Currently, at test time, the halting signal is ineffective, i.e. while the model learns to halt at early iterations on training data, it does not effectively halt on evaluation data. Are there ways to improve the halting behaviour OR are the tasks fundamentally too hard, perhaps suggesting that an even larger effective depth is required for training?
+\end{enumerate}
 
 \section{Acknowledgements}
 
