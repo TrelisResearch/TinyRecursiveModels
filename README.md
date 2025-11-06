@@ -1,6 +1,7 @@
 # Additional Documentation (see README-original for the original README)
 
-> YouTube Livestream upcoming on Nov 5th 2025 at 2 pm Irish time. Sign-up [here](https://youtube.com/live/8RUzN9odRzI?feature=share).
+>[!TIP]
+> Watch [this Youtube video](https://youtube.com/live/8RUzN9odRzI?feature=share) to better understand how to use this repo.
 
 ## Runpod One-click Template
 Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=tduftocnct&ref=jmfkcdio)). Note: This is a Trelis template and is an affiliate link.
