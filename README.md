@@ -27,6 +27,26 @@ export GIT_USER_EMAIL="your@email.com"
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
 
+## Pretraining Ablations for shorter runtime
+### No translations and 256 augs only
+
+```bash
+run_name="pretrain_100k_no_transl_256a"
+git pull && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2concept-aug-1000 \
+  --enable-train-translation false \
+  --subsets concept training2 evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/arc2concept-aug-1000'] \
+  arch=trm \
+  +run_name="${run_name}" > pretrain_100k_no_transl_256a.log &
+```
+
+
 ## Final Runs
 ### 200k epochs on all data
 ```bash

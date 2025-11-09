@@ -26,6 +26,7 @@ class DataProcessConfig(BaseModel):
     puzzle_identifiers_start: int = 1 # start > 1 to handle multiple datasets
     grid_noise_prob: float = 0.0
     grid_noise_fraction: float = 0.0
+    enable_train_translation: bool = True
 
     @model_validator(mode="after")
     def _merge_legacy_test_sets(self):
@@ -261,7 +262,7 @@ def convert_dataset(config: DataProcessConfig):
         os.makedirs(os.path.join(config.output_dir, split_name), exist_ok=True)
         
         # Translational augmentations
-        enable_translational_augment = split_name == "train"
+        enable_translational_augment = split_name == "train" and config.enable_train_translation
 
         # Statistics
         total_examples = 0
@@ -343,7 +344,6 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
 
 
 
