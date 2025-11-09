@@ -38,7 +38,8 @@ uv run python3 -m dataset.build_arc_dataset \
   --output-dir data/arc2concept-aug-1000 \
   --no-enable-train-translation \
   --subsets concept training2 evaluation2 \
-  --test-set-name evaluation2 && \
+  --test-set-name evaluation2 \
+  --num-aug 256 && \
 PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   data_paths=['data/arc2concept-aug-1000'] \
