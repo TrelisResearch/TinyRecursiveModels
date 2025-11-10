@@ -77,6 +77,7 @@ class PretrainConfig(pydantic.BaseModel):
     # Puzzle embedding
     puzzle_emb_lr: float
     puzzle_emb_weight_decay: float
+    puzzle_aug_weight_decay: float = 0.1
     puzzle_emb_reinit_strategy: str = "mean"
 
     # Names
@@ -130,6 +131,7 @@ def create_dataloader(
     world_size: int,
     max_eval_augmentations: Optional[int] = None,
     data_paths_override: Optional[List[str]] = None,
+    group_offset_start: int = 0,
     **kwargs,
 ):
     noise_prob = config.grid_noise_prob if config.grid_noise_prob is not None else getattr(config.arch, "grid_noise_prob", 0.0)
@@ -154,6 +156,7 @@ def create_dataloader(
             rank=rank,
             num_replicas=world_size,
             max_eval_augmentations=max_eval_augmentations,
+            group_offset_start=group_offset_start,
             **kwargs,
         ),
         split=split,
@@ -169,13 +172,21 @@ def create_dataloader(
     return dataloader, dataset.metadata
 
 
-def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+def create_model(
+    config: PretrainConfig,
+    train_metadata: PuzzleDatasetMetadata,
+    *,
+    num_task_identifiers: int,
+    rank: int,
+    world_size: int,
+):
     model_cfg = dict(
         **config.arch.__pydantic_extra__,  # type: ignore
         batch_size=config.global_batch_size // world_size,
         vocab_size=train_metadata.vocab_size,
         seq_len=train_metadata.seq_len,
         num_puzzle_identifiers=train_metadata.num_puzzle_identifiers,
+        num_task_identifiers=num_task_identifiers,
         causal=False  # Non-autoregressive
     )
     if config.halt_max_steps_eval is not None:
@@ -203,67 +214,57 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                     dist.broadcast(param, src=0)
 
     # Optimizers and lr
-    optimizer_tags: List[str]
+    optimizers: List[torch.optim.Optimizer] = []
+    optimizer_lrs: List[float] = []
+    optimizer_tags: List[str] = []
 
-    if config.arch.puzzle_emb_ndim == 0:
-        optimizers = [
+    def _add_sparse_optimizer(module: nn.Module, weight_decay: float, tag: str) -> None:
+        optimizers.append(
+            CastedSparseEmbeddingSignSGD_Distributed(
+                module.buffers(),  # type: ignore[arg-type]
+                lr=0,
+                weight_decay=weight_decay,
+                world_size=world_size,
+            )
+        )
+        optimizer_lrs.append(config.puzzle_emb_lr)
+        optimizer_tags.append(tag)
+
+    def _add_trunk_optimizer() -> None:
+        optimizers.append(
             AdamAtan2(
                 model.parameters(),
-                lr=0.0001,  # Needs to be set by scheduler
+                lr=0.0001,
                 weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
+                betas=(config.beta1, config.beta2),
             )
-        ]
-        optimizer_lrs = [
-            config.lr
-        ]
-        optimizer_tags = ["trunk"]
+        )
+        optimizer_lrs.append(config.lr)
+        optimizer_tags.append("trunk")
+
+    if config.arch.puzzle_emb_ndim > 0:
+        core_model = _get_core_model(model)
+        inner = getattr(core_model, "inner", None) if core_model is not None else None
+        task_emb_module = getattr(inner, "task_emb", None) if inner is not None else None
+        delta_emb_module = None
+        if inner is not None:
+            delta_emb_module = getattr(inner, "aug_delta_emb", None)
+            if delta_emb_module is None:
+                delta_emb_module = getattr(inner, "puzzle_emb", None)
+        if task_emb_module is not None:
+            _add_sparse_optimizer(task_emb_module, config.puzzle_emb_weight_decay, "task_embedding")
+        if delta_emb_module is not None:
+            _add_sparse_optimizer(delta_emb_module, config.puzzle_aug_weight_decay, "aug_embedding")
+
+    if config.arch.puzzle_emb_ndim == 0:
+        _add_trunk_optimizer()
     elif config.freeze_weights:
         freeze_epochs = config.freeze_weights_epochs
         add_trunk_optimizer = freeze_epochs is not None and max(0, freeze_epochs) < config.epochs
-        optimizers = [
-            CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
-                lr=0,  # Needs to be set by scheduler
-                weight_decay=config.puzzle_emb_weight_decay,
-                world_size=world_size
-            )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr
-        ]
-        optimizer_tags = ["embedding"]
         if add_trunk_optimizer:
-            optimizers.append(
-                AdamAtan2(
-                    model.parameters(),
-                    lr=0.0001,  # Needs to be set by scheduler
-                    weight_decay=config.weight_decay,
-                    betas=(config.beta1, config.beta2)
-                )
-            )
-            optimizer_lrs.append(config.lr)
-            optimizer_tags.append("trunk")
+            _add_trunk_optimizer()
     else:
-        optimizers = [
-            CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
-                lr=0,  # Needs to be set by scheduler
-                weight_decay=config.puzzle_emb_weight_decay,
-                world_size=world_size
-            ),
-            AdamAtan2(
-                model.parameters(),
-                lr=0.0001,  # Needs to be set by scheduler
-                weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
-            )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr,
-            config.lr
-        ]
-        optimizer_tags = ["embedding", "trunk"]
+        _add_trunk_optimizer()
 
     return model, optimizers, optimizer_lrs, optimizer_tags
 
@@ -290,12 +291,24 @@ def cosine_schedule_with_warmup_lr_lambda(
     return base_lr * (min_ratio + max(0.0, (1 - min_ratio) * 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))))
 
 
-def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+def init_train_state(
+    config: PretrainConfig,
+    train_metadata: PuzzleDatasetMetadata,
+    rank: int,
+    world_size: int,
+    num_task_identifiers: int,
+):
     # Estimated total training steps
     total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
 
     # Model
-    model, optimizers, optimizer_lrs, optimizer_tags = create_model(config, train_metadata, rank=rank, world_size=world_size)
+    model, optimizers, optimizer_lrs, optimizer_tags = create_model(
+        config,
+        train_metadata,
+        num_task_identifiers=num_task_identifiers,
+        rank=rank,
+        world_size=world_size,
+    )
 
     freeze_trunk_until_step: Optional[int] = None
     if config.freeze_weights and any(tag == "trunk" for tag in optimizer_tags):
@@ -377,29 +390,62 @@ def load_checkpoint(model: nn.Module, config: PretrainConfig):
         state_dict = torch.load(config.load_checkpoint, map_location="cuda")
         state_dict = _align_state_dict_for_compile(state_dict, model)
 
-        # Resize and reset puzzle emb if needed
-        puzzle_emb_keys = [
+        # Resize and reset embedding tables if needed
+        embedding_specs = []
+        core_model = _get_core_model(model)
+        inner = getattr(core_model, "inner", None) if core_model is not None else None
+        if inner is not None:
+            if hasattr(inner, "task_emb"):
+                embedding_specs.append(("task_emb", inner.task_emb, "base"))
+            if hasattr(inner, "aug_delta_emb"):
+                embedding_specs.append(("aug_delta_emb", inner.aug_delta_emb, "delta"))
+            elif hasattr(inner, "puzzle_emb"):
+                embedding_specs.append(("puzzle_emb", inner.puzzle_emb, "legacy"))
+
+        strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
+        legacy_keys = [
             "model.inner.puzzle_emb.weights",
             "_orig_mod.model.inner.puzzle_emb.weights",
         ]
-        for puzzle_emb_name in puzzle_emb_keys:
-            if puzzle_emb_name in state_dict:
-                expected_shape: torch.Size = model.model.puzzle_emb.weights.shape  # type: ignore
-                puzzle_emb = state_dict[puzzle_emb_name]
-                if puzzle_emb.shape != expected_shape:
-                    print(f"Resetting puzzle embedding as shape is different. Found {puzzle_emb.shape}, Expected {expected_shape}")
-                    strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
-                    puzzle_emb_float = puzzle_emb.to(torch.float32)
-                    mean_vec = torch.mean(puzzle_emb_float, dim=0, keepdim=True)
+        legacy_tensor = None
+        for key in legacy_keys:
+            if key in state_dict:
+                legacy_tensor = state_dict[key]
+                break
+
+        for name, module, kind in embedding_specs:
+            weights = getattr(module, "weights", None)
+            if weights is None:
+                continue
+            expected_shape: torch.Size = weights.shape  # type: ignore
+            possible_keys = [
+                f"model.inner.{name}.weights",
+                f"_orig_mod.model.inner.{name}.weights",
+            ]
+            for key in possible_keys:
+                if key not in state_dict and kind == "delta" and legacy_tensor is not None:
+                    state_dict[key] = legacy_tensor.clone()
+                    legacy_tensor = None
+                if key not in state_dict:
+                    continue
+                tensor = state_dict[key]
+                if tensor.shape == expected_shape:
+                    break
+                print(f"Resetting {name} as shape differs. Found {tensor.shape}, Expected {expected_shape}")
+                if kind in {"base", "legacy"}:
+                    tensor_float = tensor.to(torch.float32)
+                    mean_vec = torch.mean(tensor_float, dim=0, keepdim=True)
                     if strategy == "mean":
-                        state_dict[puzzle_emb_name] = mean_vec.expand(expected_shape).to(puzzle_emb.dtype).contiguous()
+                        state_dict[key] = mean_vec.expand(expected_shape).to(tensor.dtype).contiguous()
                     elif strategy == "normal":
-                        std_vec = torch.std(puzzle_emb_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
+                        std_vec = torch.std(tensor_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
                         noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
                         new_weights = noise * std_vec + mean_vec
-                        state_dict[puzzle_emb_name] = new_weights.to(puzzle_emb.dtype).contiguous()
+                        state_dict[key] = new_weights.to(tensor.dtype).contiguous()
                     else:
                         raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
+                else:
+                    state_dict[key] = torch.zeros(expected_shape, dtype=tensor.dtype, device=tensor.device)
                 break
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False, assign=True)
         if len(unexpected_keys):
@@ -428,7 +474,7 @@ def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
     embed_sq = torch.zeros((), device=device, dtype=torch.float32)
     trunk_sq = torch.zeros((), device=device, dtype=torch.float32)
 
-    embed_keys = ("puzzle_emb", "aug_dihedral_emb", "aug_color_pair_emb")
+    embed_keys = ("puzzle_emb", "aug_dihedral_emb", "aug_color_pair_emb", "task_emb", "aug_delta_emb")
 
     for name, param in model.named_parameters():
         if param.grad is None:
@@ -439,41 +485,102 @@ def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
         else:
             trunk_sq += grad_sq
 
-    core_model = getattr(model, "model", None)
+    core_model = _get_core_model(model)
     if core_model is not None:
         inner = getattr(core_model, "inner", None)
-        puzzle_emb = getattr(inner, "puzzle_emb", None)
-        if puzzle_emb is not None and getattr(puzzle_emb, "local_weights", None) is not None:
-            local_grad = puzzle_emb.local_weights.grad  # type: ignore
-            if local_grad is not None:
-                embed_sq += local_grad.detach().float().pow(2).sum()
+        if inner is not None:
+            for attr_name in ("puzzle_emb", "aug_delta_emb", "task_emb"):
+                emb_module = getattr(inner, attr_name, None)
+                if emb_module is None:
+                    continue
+                local_weights = getattr(emb_module, "local_weights", None)
+                if local_weights is None:
+                    continue
+                local_grad = getattr(local_weights, "grad", None)
+                if local_grad is not None:
+                    embed_sq += local_grad.detach().float().pow(2).sum()
 
     return embed_sq.sqrt(), trunk_sq.sqrt()
 
 
-def _get_puzzle_embedding_module(model: nn.Module):
-    core_model = getattr(model, "model", None)
+def _get_core_model(model: nn.Module) -> Optional[nn.Module]:
+    return getattr(getattr(model, "_orig_mod", model), "model", None)
+
+
+def _get_embedding_weight_buffers(model: nn.Module):
+    """Return (task_weights, delta_weights, blank_task_identifier)."""
+    core_model = _get_core_model(model)
     inner = getattr(core_model, "inner", None) if core_model is not None else None
-    return getattr(inner, "puzzle_emb", None) if inner is not None else None
+    if inner is None:
+        return None, None, None
+    task_emb = getattr(inner, "task_emb", None)
+    delta_emb = getattr(inner, "aug_delta_emb", None)
+    if delta_emb is None:
+        delta_emb = getattr(inner, "puzzle_emb", None)
+    task_weights = getattr(task_emb, "weights", None) if task_emb is not None else None
+    delta_weights = getattr(delta_emb, "weights", None) if delta_emb is not None else None
+    blank_task_identifier = getattr(inner, "blank_task_identifier", None)
+    return task_weights, delta_weights, blank_task_identifier
 
 
-def compute_embedding_cosine(model: nn.Module, identifiers: torch.Tensor, blank_id: int) -> torch.Tensor:
+def _collect_unique_embeddings(
+    model: nn.Module,
+    identifiers: torch.Tensor,
+    task_ids: Optional[torch.Tensor],
+    blank_id: int,
+) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """Gather combined embeddings and associated task ids for each unique puzzle identifier."""
+    valid_mask = identifiers != blank_id
+    if not bool(valid_mask.any()):
+        return None, None
+
+    ids = identifiers[valid_mask].to(torch.int64)
+    tasks = task_ids[valid_mask].to(torch.int64) if task_ids is not None else None
+
+    sorted_ids, sort_idx = torch.sort(ids)
+    sorted_tasks = tasks[sort_idx] if tasks is not None else None
+    unique_ids, counts = torch.unique_consecutive(sorted_ids, return_counts=True)
+    if unique_ids.numel() == 0:
+        return None, None
+
+    if sorted_tasks is not None:
+        offsets = torch.cumsum(counts, dim=0) - counts
+        unique_tasks = sorted_tasks[offsets]
+    else:
+        unique_tasks = None
+
+    task_weights, delta_weights, blank_task_identifier = _get_embedding_weight_buffers(model)
+    if delta_weights is None:
+        return None, unique_tasks
+
+    combined = delta_weights[unique_ids.long()].to(torch.float32)
+    if task_weights is not None and unique_tasks is not None:
+        clamped_tasks = unique_tasks
+        if blank_task_identifier is not None:
+            pad_tensor = torch.full_like(unique_tasks, blank_task_identifier)
+            clamped_tasks = torch.where(unique_tasks >= 0, unique_tasks, pad_tensor)
+        combined = combined + task_weights[clamped_tasks.long()].to(torch.float32)
+
+    return combined, unique_tasks
+
+
+def compute_embedding_cosine(
+    model: nn.Module,
+    identifiers: torch.Tensor,
+    task_ids: Optional[torch.Tensor],
+    blank_id: int,
+) -> torch.Tensor:
     """Mean pairwise cosine similarity between unique puzzle embeddings referenced by `identifiers`."""
-    unique_ids = torch.unique(identifiers)
-    unique_ids = unique_ids[unique_ids != blank_id]
-    if unique_ids.numel() <= 1:
+    embeddings, _ = _collect_unique_embeddings(model, identifiers, task_ids, blank_id)
+    if embeddings is None or embeddings.size(0) <= 1:
         return torch.zeros((), device=identifiers.device, dtype=torch.float32)
 
-    puzzle_emb = _get_puzzle_embedding_module(model)
-    if puzzle_emb is None:
-        return torch.zeros((), device=identifiers.device, dtype=torch.float32)
-
-    weight_matrix = puzzle_emb.weights[unique_ids.long()].to(torch.float32)  # type: ignore
+    weight_matrix = embeddings
     norms = weight_matrix.norm(dim=-1, keepdim=True).clamp_min(1e-6)
     normalized = weight_matrix / norms
     cosine_matrix = normalized @ normalized.T
     off_diag = cosine_matrix.sum() - torch.trace(cosine_matrix)
-    pairs = unique_ids.numel() * (unique_ids.numel() - 1)
+    pairs = weight_matrix.size(0) * (weight_matrix.size(0) - 1)
     return off_diag / pairs
 
 
@@ -488,31 +595,28 @@ def compute_embedding_cosine_within_task(
     if task_ids is None:
         return torch.zeros((), device=identifiers.device, dtype=torch.float32)
 
-    valid_mask = (identifiers != blank_id) & (task_ids != blank_task_id)
-    if not bool(valid_mask.any()):
+    embeddings, unique_tasks = _collect_unique_embeddings(model, identifiers, task_ids, blank_id)
+    if embeddings is None or unique_tasks is None:
         return torch.zeros((), device=identifiers.device, dtype=torch.float32)
 
-    puzzle_emb = _get_puzzle_embedding_module(model)
-    if puzzle_emb is None:
+    valid_task_mask = unique_tasks != blank_task_id
+    if not bool(valid_task_mask.any()):
         return torch.zeros((), device=identifiers.device, dtype=torch.float32)
 
-    identifiers = identifiers[valid_mask]
-    task_ids = task_ids[valid_mask]
+    task_values = unique_tasks[valid_task_mask]
+    task_embeddings = embeddings[valid_task_mask]
 
-    cosines = []
-    for task in torch.unique(task_ids):
-        task_mask = task_ids == task
-        task_unique_ids = torch.unique(identifiers[task_mask])
-        task_unique_ids = task_unique_ids[task_unique_ids != blank_id]
-        if task_unique_ids.numel() <= 1:
+    cosines: List[torch.Tensor] = []
+    for task in torch.unique(task_values):
+        task_mask = task_values == task
+        if task_mask.sum() <= 1:
             continue
-
-        weight_matrix = puzzle_emb.weights[task_unique_ids.long()].to(torch.float32)  # type: ignore
+        weight_matrix = task_embeddings[task_mask]
         norms = weight_matrix.norm(dim=-1, keepdim=True).clamp_min(1e-6)
         normalized = weight_matrix / norms
         cosine_matrix = normalized @ normalized.T
         off_diag = cosine_matrix.sum() - torch.trace(cosine_matrix)
-        pairs = task_unique_ids.numel() * (task_unique_ids.numel() - 1)
+        pairs = task_mask.sum() * (task_mask.sum() - 1)
         cosines.append(off_diag / pairs)
 
     if len(cosines) == 0:
@@ -567,6 +671,7 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
         embedding_cosine = compute_embedding_cosine(
             train_state.model,
             batch["puzzle_identifiers"],
+            batch.get("task_identifiers"),
             train_state.blank_identifier_id,
         ).detach()
         embedding_cosine_within = compute_embedding_cosine_within_task(
@@ -702,6 +807,7 @@ def evaluate(
             cosine_val = compute_embedding_cosine(
                 train_state.model,
                 puzzle_ids,
+                task_ids,
                 train_state.blank_identifier_id,
             ).detach()
             cosine_within_val = compute_embedding_cosine_within_task(
@@ -865,6 +971,7 @@ def load_synced_config(hydra_config: DictConfig, rank: int, world_size: int) -> 
 
 @hydra.main(config_path="config", config_name="cfg_pretrain", version_base=None)
 def launch(hydra_config: DictConfig):
+    global wandb
     RANK = 0
     WORLD_SIZE = 1
     CPU_PROCESS_GROUP = None
@@ -906,6 +1013,8 @@ def launch(hydra_config: DictConfig):
         rank=RANK,
         world_size=WORLD_SIZE,
     )
+    task_identifier_capacity = train_metadata.total_groups
+    eval_group_offset = task_identifier_capacity
     try:
         eval_loader, eval_metadata = create_dataloader(
             config,
@@ -916,7 +1025,13 @@ def launch(hydra_config: DictConfig):
             rank=RANK,
             world_size=WORLD_SIZE,
             max_eval_augmentations=config.eval_max_augmentations,
+            group_offset_start=eval_group_offset,
         )
+        if eval_metadata is not None:
+            task_identifier_capacity = max(
+                task_identifier_capacity,
+                eval_group_offset + eval_metadata.total_groups,
+            )
     except:
         print("NO EVAL DATA FOUND")
         eval_loader = eval_metadata = None
@@ -928,7 +1043,13 @@ def launch(hydra_config: DictConfig):
         evaluators = []
 
     # Train state
-    train_state = init_train_state(config, train_metadata, rank=RANK, world_size=WORLD_SIZE)
+    train_state = init_train_state(
+        config,
+        train_metadata,
+        rank=RANK,
+        world_size=WORLD_SIZE,
+        num_task_identifiers=task_identifier_capacity,
+    )
 
     # Progress bar and logger
     progress_bar = None
@@ -936,15 +1057,20 @@ def launch(hydra_config: DictConfig):
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
         if wandb is not None:
-            wandb.init(
-                project=config.project_name,
-                entity=config.entity,
-                name=config.run_name,
-                config=config.model_dump(),
-                settings=wandb.Settings(_disable_stats=True)
-            )  # type: ignore
-            wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
-            save_code_and_config(config)
+            try:
+                wandb.init(
+                    project=config.project_name,
+                    entity=config.entity,
+                    name=config.run_name,
+                    config=config.model_dump(),
+                    settings=wandb.Settings(_disable_stats=True),
+                )  # type: ignore
+                wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
+                save_code_and_config(config)
+            except Exception as exc:  # pragma: no cover - defensive
+                print(f"[WARN] Failed to initialize W&B ({exc}); disabling logging.")
+                wandb = None
+                save_code_and_config(config)
         else:
             save_code_and_config(config)
     if config.ema:

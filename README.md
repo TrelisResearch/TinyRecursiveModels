@@ -28,6 +28,25 @@ export GIT_USER_EMAIL="your@email.com"
 ```
 
 ## Pretraining Ablations for shorter runtime
+### Weight Decay the Augmentation Embed Diff w/ Base Task Embed
+```bash
+run_name="pretrain_100k_wda"
+git pull && \
+git switch regul && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-aug-1000 \
+  --subsets concept training2 evaluation2 \
+  --test-set-name evaluation2 \
+  --num-aug 1000 && \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/arc2-aug-1000'] \
+  arch=trm \
+  +project_name='arc2concept-aug-1000' \
+  +run_name="${run_name}" > pretrain_100k_wda.log &
+```
+
 ### No translations and 256 augs only
 
 ```bash

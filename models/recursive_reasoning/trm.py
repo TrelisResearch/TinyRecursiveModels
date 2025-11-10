@@ -35,6 +35,7 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     seq_len: int
     puzzle_emb_ndim: int = 0
     num_puzzle_identifiers: int
+    num_task_identifiers: int
     vocab_size: int
 
     H_cycles: int
@@ -143,9 +144,23 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)  if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len  # ceil div
         if self.config.puzzle_emb_ndim > 0:
-            # Zero init puzzle embeddings
-            self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
-                                                    batch_size=self.config.batch_size, init_std=0, cast_to=self.forward_dtype)
+            # Zero init task/base embeddings plus augmentation deltas
+            self.blank_task_identifier = self.config.num_task_identifiers
+            self.task_emb = CastedSparseEmbedding(
+                self.config.num_task_identifiers + 1,  # extra slot for blank/pad
+                self.config.puzzle_emb_ndim,
+                batch_size=self.config.batch_size,
+                init_std=0,
+                cast_to=self.forward_dtype,
+            )
+            self.aug_delta_emb = CastedSparseEmbedding(
+                self.config.num_puzzle_identifiers,
+                self.config.puzzle_emb_ndim,
+                batch_size=self.config.batch_size,
+                init_std=0,
+                cast_to=self.forward_dtype,
+            )
+            self.puzzle_emb = self.aug_delta_emb  # backward compatibility
 
         # LM Blocks
         if self.config.pos_encodings == "rope":
@@ -170,7 +185,12 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             self.q_head.weight.zero_()
             self.q_head.bias.fill_(-5)  # type: ignore
 
-    def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor):
+    def _input_embeddings(
+        self,
+        input: torch.Tensor,
+        puzzle_identifiers: torch.Tensor,
+        task_identifiers: Optional[torch.Tensor] = None,
+    ):
         # Token embedding
         embedding = self.embed_tokens(input.to(torch.int32))
         if self.training and self.config.grid_token_dropout > 0:
@@ -178,7 +198,25 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         # Puzzle embeddings
         if self.config.puzzle_emb_ndim > 0:
-            puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
+            aug_embedding = self.aug_delta_emb(puzzle_identifiers.to(torch.int64))
+            if hasattr(self, "task_emb"):
+                if task_identifiers is None:
+                    task_ids = torch.full_like(puzzle_identifiers, self.blank_task_identifier, dtype=torch.int64)
+                else:
+                    task_ids = task_identifiers.to(torch.int64)
+                blank_task_idx = getattr(self, "blank_task_identifier", None)
+                if blank_task_idx is not None:
+                    pad_value = torch.full_like(task_ids, blank_task_idx)
+                    task_ids = torch.where(task_ids >= 0, task_ids, pad_value)
+                    task_ids = torch.where(
+                        task_ids < self.config.num_task_identifiers,
+                        task_ids,
+                        pad_value,
+                    )
+                base_embedding = self.task_emb(task_ids)
+                puzzle_embedding = base_embedding + aug_embedding
+            else:
+                puzzle_embedding = aug_embedding
             if self.training and self.config.puzzle_emb_dropout > 0:
                 keep_prob = 1.0 - self.config.puzzle_emb_dropout
                 keep_mask = (torch.rand(puzzle_embedding.size(0), device=puzzle_embedding.device) >= self.config.puzzle_emb_dropout).to(puzzle_embedding.dtype)
@@ -217,7 +255,11 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         )
 
         # Input encoding
-        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
+        input_embeddings = self._input_embeddings(
+            batch["inputs"],
+            batch["puzzle_identifiers"],
+            batch.get("task_identifiers"),
+        )
 
         # Forward iterations
         it = 0
@@ -260,7 +302,11 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
 
     @property
     def puzzle_emb(self):
-        return self.inner.puzzle_emb
+        # Maintained for compatibility; returns augmentation delta table
+        return getattr(self.inner, "aug_delta_emb", getattr(self.inner, "puzzle_emb", None))
+
+    def task_emb(self):
+        return getattr(self.inner, "task_emb", None)
 
     def initial_carry(self, batch: Dict[str, torch.Tensor]):
         batch_size = batch["inputs"].shape[0]

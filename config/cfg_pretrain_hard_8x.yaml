@@ -38,6 +38,7 @@ beta1: 0.9
 beta2: 0.95
 weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
+puzzle_aug_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
 puzzle_emb_lr: 2e-2

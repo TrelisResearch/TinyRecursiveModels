@@ -52,6 +52,7 @@ class PuzzleDatasetConfig(pydantic.BaseModel):
     max_eval_augmentations: Optional[int] = None
     grid_noise_prob: float = 0.0
     grid_noise_fraction: float = 0.0
+    group_offset_start: int = 0
 
 class PuzzleDataset(IterableDataset):
     def __init__(self, config: PuzzleDatasetConfig, split: str = "train"):
@@ -138,6 +139,7 @@ class PuzzleDataset(IterableDataset):
 
         # Load data
         self._data = {}
+        group_offset = self.config.group_offset_start
         for set_name in self.metadata.sets: # Load subset
             for i, dataset_path in enumerate(self.config.dataset_paths):
                 if i > 0:
@@ -158,9 +160,9 @@ class PuzzleDataset(IterableDataset):
                 for group_id in range(num_groups):
                     start = int(group_indices[group_id])
                     end = int(group_indices[group_id + 1])
-                    puzzle_group_ids[start:end] = group_id
+                    puzzle_group_ids[start:end] = group_id + group_offset
                 self._data[set_name_]["puzzle_group_ids"] = puzzle_group_ids
-
+                group_offset += num_groups
 
     def _limit_eval_augmentations(self, dataset: Dict[str, np.ndarray], max_aug: int):
         # Keep the original puzzle plus up to max_aug augmented variants per group.

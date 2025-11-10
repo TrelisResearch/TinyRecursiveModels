@@ -31,6 +31,7 @@ class HierarchicalReasoningModel_ACTV1Config(BaseModel):
     seq_len: int
     puzzle_emb_ndim: int = 0
     num_puzzle_identifiers: int
+    num_task_identifiers: int
     vocab_size: int
 
     H_cycles: int
