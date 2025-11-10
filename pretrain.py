@@ -1,4 +1,4 @@
-from typing import Optional, Any, Sequence, List, Tuple, Dict, Set
+from typing import Optional, Any, Sequence, List, Tuple, Dict
 from dataclasses import dataclass
 import os
 import math
@@ -51,19 +51,6 @@ class EvaluatorConfig(pydantic.BaseModel):
     name: str
 
 
-class MetaLearningConfig(pydantic.BaseModel):
-    enabled: bool = False
-    inner_lr: Optional[float] = None
-    inner_lr_embed: Optional[float] = None
-    inner_steps: int = 1
-
-
-class MetaEvalConfig(pydantic.BaseModel):
-    data_paths: List[str]
-    global_batch_size: Optional[int] = None
-    max_eval_augmentations: Optional[int] = None
-
-
 class PretrainConfig(pydantic.BaseModel):
     # Config
     arch: ArchConfig
@@ -113,9 +100,6 @@ class PretrainConfig(pydantic.BaseModel):
     freeze_weights: bool = False # If True, freeze weights and only learn the embeddings
     freeze_weights_epochs: Optional[int] = None # If set and freeze_weights is True, number of initial epochs to keep trunk frozen
 
-    meta_learning: MetaLearningConfig = MetaLearningConfig()
-    meta_eval: Optional[MetaEvalConfig] = None
-
     # Dataloader controls
     dataloader_num_workers: int = 1
     dataloader_prefetch_factor: int = 8
@@ -138,113 +122,6 @@ class TrainState:
     freeze_trunk_until_step: Optional[int]
     trunk_frozen_active: bool
 
-
-class MetaQueryFetcher:
-    """Lightweight index for pulling query batches by puzzle identifier."""
-
-    def __init__(self, dataset: PuzzleDataset, max_batch_size: int):
-        self._dataset = dataset
-        self._dataset._lazy_load_dataset()  # type: ignore[attr-defined]
-        self._metadata = dataset.metadata
-        self._entries: Dict[int, List[Tuple[Dict[str, np.ndarray], int, int, int]]] = {}
-        self._max_batch_size = max_batch_size
-
-        for data in self._dataset._data.values():  # type: ignore[attr-defined]
-            puzzle_ids = data["puzzle_identifiers"]
-            puzzle_indices = data["puzzle_indices"]
-            task_ids = data.get("puzzle_group_ids")
-
-            for puzzle_idx in range(puzzle_ids.shape[0]):
-                pid = int(puzzle_ids[puzzle_idx])
-                start = int(puzzle_indices[puzzle_idx])
-                end = int(puzzle_indices[puzzle_idx + 1])
-                task_id = int(task_ids[puzzle_idx]) if task_ids is not None else -1
-                self._entries.setdefault(pid, []).append((data, start, end, task_id))
-
-    @property
-    def metadata(self) -> PuzzleDatasetMetadata:
-        return self._metadata
-
-    def fetch(self, puzzle_ids: torch.Tensor) -> Optional[Dict[str, torch.Tensor]]:
-        unique_ids = torch.unique(puzzle_ids.detach().cpu()).tolist()
-        inputs: List[np.ndarray] = []
-        labels: List[np.ndarray] = []
-        puzzle_identifier_list: List[np.ndarray] = []
-        task_identifier_list: List[np.ndarray] = []
-        per_puzzle_count: Dict[int, int] = {}
-
-        max_total = max(self._max_batch_size, 1)
-        remaining_total = max_total
-        total_collected = 0
-
-        # Avoid degenerate division when there are more puzzles than capacity
-        active_ids = unique_ids[:max_total]
-        ids_len = max(len(active_ids), 1)
-        per_puzzle_limit = max(1, math.ceil(max_total / ids_len))
-
-        for pid in active_ids:
-            entries = self._entries.get(int(pid))
-            if not entries:
-                continue
-
-            per_puzzle_count.setdefault(pid, 0)
-
-            for data, start, end, task_id in entries:
-                if remaining_total <= 0:
-                    break
-
-                remaining_for_pid = per_puzzle_limit - per_puzzle_count[pid]
-                if remaining_for_pid <= 0:
-                    break
-
-                block_size = end - start
-                take = min(block_size, remaining_for_pid, remaining_total)
-                if take <= 0:
-                    continue
-
-                slice_start = start
-                slice_end = start + take
-
-                inputs.append(data["inputs"][slice_start:slice_end])
-                labels.append(data["labels"][slice_start:slice_end])
-
-                puzzle_dtype = data["puzzle_identifiers"].dtype
-                task_dtype = (
-                    data["puzzle_group_ids"].dtype
-                    if data.get("puzzle_group_ids") is not None
-                    else np.int32
-                )
-                puzzle_identifier_list.append(np.full(take, pid, dtype=puzzle_dtype))
-                task_identifier_list.append(np.full(take, task_id, dtype=task_dtype))
-
-                per_puzzle_count[pid] += take
-                total_collected += take
-                remaining_total -= take
-
-                if remaining_total <= 0:
-                    break
-
-            if remaining_total <= 0:
-                break
-
-        if not inputs:
-            return None
-
-        inputs_arr = np.concatenate(inputs, axis=0)
-        labels_arr = np.concatenate(labels, axis=0)
-        puzzle_arr = np.concatenate(puzzle_identifier_list, axis=0)
-        task_arr = np.concatenate(task_identifier_list, axis=0)
-
-        batch_np = {
-            "inputs": inputs_arr,
-            "labels": labels_arr,
-            "puzzle_identifiers": puzzle_arr,
-            "task_identifiers": task_arr,
-        }
-
-        # Reuse dataset collate to match train/eval behaviour (dtype + ignore label mapping).
-        collated = self._dataset._collate_batch(batch_np)  # type: ignore[attr-defined]
-        return collated
 
 def create_dataloader(
     config: PretrainConfig,
@@ -312,7 +189,7 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         model: nn.Module = model_cls(model_cfg)
         print(model)
         model = loss_head_cls(model, **config.arch.loss.__pydantic_extra__)  # type: ignore
-        if (not config.meta_learning.enabled) and ("DISABLE_COMPILE" not in os.environ):
+        if "DISABLE_COMPILE" not in os.environ:
             model = torch.compile(model)  # type: ignore
 
         # Load checkpoint
@@ -580,95 +457,6 @@ def _get_puzzle_embedding_module(model: nn.Module):
     return getattr(inner, "puzzle_emb", None) if inner is not None else None
 
 
-def _clear_sparse_embedding_grads(model: nn.Module) -> None:
-    puzzle_emb = _get_puzzle_embedding_module(model)
-    if puzzle_emb is None:
-        return
-    local_weights = getattr(puzzle_emb, "local_weights", None)
-    if local_weights is not None:
-        grad = getattr(local_weights, "grad", None)
-        if grad is not None:
-            local_weights.grad = None
-
-
-class _SparseEmbeddingInnerLoopState:
-    def __init__(self):
-        self.backed_ids: Set[int] = set()
-        self.backups: List[Tuple[torch.Tensor, torch.Tensor]] = []
-
-
-def _backup_sparse_embedding_rows(
-    puzzle_emb: nn.Module, ids: torch.Tensor, state: _SparseEmbeddingInnerLoopState
-) -> None:
-    if ids.numel() == 0:
-        return
-
-    id_list = ids.detach().tolist()
-    new_ids = [idx for idx in id_list if idx not in state.backed_ids]
-    if not new_ids:
-        return
-
-    state.backed_ids.update(new_ids)
-    ids_tensor = ids.new_tensor(new_ids)
-    with torch.no_grad():
-        state.backups.append((ids_tensor, puzzle_emb.weights[ids_tensor].detach().clone()))
-
-
-def _apply_sparse_embedding_inner_step(
-    puzzle_emb: nn.Module,
-    blank_id: int,
-    inner_lr: float,
-    state: _SparseEmbeddingInnerLoopState,
-) -> None:
-    local_weights = getattr(puzzle_emb, "local_weights", None)
-    local_ids = getattr(puzzle_emb, "local_ids", None)
-    if local_weights is None or local_ids is None:
-        return
-
-    grad = getattr(local_weights, "grad", None)
-    if grad is None:
-        return
-
-    valid_mask = local_ids != blank_id
-    if valid_mask.sum().item() == 0:
-        local_weights.grad = None
-        return
-
-    valid_ids = local_ids[valid_mask].to(dtype=torch.long)
-    grad_vals = grad[valid_mask]
-    if valid_ids.numel() == 0:
-        local_weights.grad = None
-        return
-
-    unique_ids, inverse = torch.unique(valid_ids, return_inverse=True)
-    grad_accum = torch.zeros(
-        (unique_ids.shape[0], grad_vals.shape[1]),
-        device=grad_vals.device,
-        dtype=grad_vals.dtype,
-    )
-    grad_accum.scatter_add_(0, inverse.unsqueeze(-1).expand_as(grad_vals), grad_vals)
-
-    _backup_sparse_embedding_rows(puzzle_emb, unique_ids, state)
-
-    grad_update = grad_accum.to(dtype=puzzle_emb.weights.dtype)
-
-    with torch.no_grad():
-        puzzle_emb.weights[unique_ids].add_(grad_update, alpha=-inner_lr)
-
-    local_weights.grad = None
-
-
-def _restore_sparse_embedding_from_backup(
-    puzzle_emb: Optional[nn.Module], state: _SparseEmbeddingInnerLoopState
-) -> None:
-    if puzzle_emb is None or not state.backups:
-        return
-
-    with torch.no_grad():
-        for ids, values in state.backups:
-            puzzle_emb.weights[ids] = values
-
-
 def compute_embedding_cosine(model: nn.Module, identifiers: torch.Tensor, blank_id: int) -> torch.Tensor:
     """Mean pairwise cosine similarity between unique puzzle embeddings referenced by `identifiers`."""
     unique_ids = torch.unique(identifiers)
@@ -745,213 +533,6 @@ def create_evaluators(config: PretrainConfig, eval_metadata: PuzzleDatasetMetada
             evaluators.append(cls)
 
     return evaluators
-
-def train_batch_meta(
-    config: PretrainConfig,
-    train_state: TrainState,
-    batch: Any,
-    global_batch_size: int,
-    rank: int,
-    world_size: int,
-    query_fetcher: MetaQueryFetcher,
-) -> Optional[Dict[str, float]]:
-    meta_cfg = config.meta_learning
-    assert meta_cfg.enabled, "train_batch_meta should only run when meta-learning is enabled."
-
-    train_state.step += 1
-    if train_state.step > train_state.total_steps:
-        return None
-
-    device = torch.device("cuda")
-
-    support_batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
-    query_data = query_fetcher.fetch(support_batch["puzzle_identifiers"])
-
-    if query_data is None:
-        # Fall back to support batch if no query data is available.
-        query_batch = {k: v.clone() for k, v in support_batch.items()}
-    else:
-        query_batch = {k: tensor.to(device, non_blocking=True) for k, tensor in query_data.items()}
-
-    support_mask = support_batch["puzzle_identifiers"] != train_state.blank_identifier_id
-    support_effective_size = max(int(support_mask.sum().item()), 1)
-
-    valid_mask = query_batch["puzzle_identifiers"] != train_state.blank_identifier_id
-    query_local_size = int(valid_mask.sum().item())
-    query_global_size_tensor = torch.tensor(
-        [float(query_local_size)], device=device, dtype=torch.float32
-    )
-    if world_size > 1:
-        dist.all_reduce(query_global_size_tensor, op=dist.ReduceOp.SUM)
-    query_effective_size = max(int(query_global_size_tensor.item()), 1)
-
-    params = [param for param in train_state.model.parameters()]
-    param_backup = [param.detach().clone() for param in params]
-    puzzle_emb = _get_puzzle_embedding_module(train_state.model)
-    sparse_state = _SparseEmbeddingInnerLoopState() if puzzle_emb is not None else None
-
-    inner_lr_trunk = float(meta_cfg.inner_lr) if meta_cfg.inner_lr is not None else float(config.lr)
-    inner_lr_embed = float(meta_cfg.inner_lr_embed) if meta_cfg.inner_lr_embed is not None else float(config.puzzle_emb_lr)
-    inner_steps = max(int(meta_cfg.inner_steps), 1)
-
-    support_loss_accum = torch.zeros((), device=device, dtype=torch.float32)
-    support_total_effective = torch.zeros((), device=device, dtype=torch.float32)
-
-    for _ in range(inner_steps):
-        for param in params:
-            param.grad = None
-
-        _clear_sparse_embedding_grads(train_state.model)
-
-        with torch.device(device):
-            support_carry = train_state.model.initial_carry(support_batch)  # type: ignore
-
-        _, support_loss, _, _, _ = train_state.model(
-            carry=support_carry, batch=support_batch, return_keys=[]
-        )
-
-        (support_loss / support_effective_size).backward()
-        support_loss_accum += support_loss.detach().to(device=device, dtype=torch.float32)
-        support_total_effective += torch.tensor(float(support_effective_size), device=device, dtype=torch.float32)
-
-        with torch.no_grad():
-            for param in params:
-                if param.grad is None:
-                    continue
-                param.add_(param.grad, alpha=-inner_lr_trunk)
-
-        if puzzle_emb is not None and sparse_state is not None:
-            _apply_sparse_embedding_inner_step(
-                puzzle_emb=puzzle_emb,
-                blank_id=train_state.blank_identifier_id,
-                inner_lr=inner_lr_embed,
-                state=sparse_state,
-            )
-
-    for param in params:
-        param.grad = None
-
-    _clear_sparse_embedding_grads(train_state.model)
-
-    with torch.device(device):
-        query_carry = train_state.model.initial_carry(query_batch)  # type: ignore
-
-    query_carry, query_loss, metrics, _, _ = train_state.model(
-        carry=query_carry, batch=query_batch, return_keys=[]
-    )
-
-    (query_loss / query_effective_size).backward()
-
-    with torch.no_grad():
-        for param, backup in zip(params, param_backup):
-            param.copy_(backup)
-
-    if sparse_state is not None:
-        _restore_sparse_embedding_from_backup(puzzle_emb, sparse_state)
-
-    if world_size > 1:
-        for param in params:
-            if param.grad is not None:
-                dist.all_reduce(param.grad)
-
-    grad_embed_norm, grad_trunk_norm = compute_grad_norms(train_state.model)
-
-    if metrics is not None:
-        count_tensor = metrics.get("count")
-        grad_embed = grad_embed_norm.detach()
-        grad_trunk = grad_trunk_norm.detach()
-        embedding_cosine = compute_embedding_cosine(
-            train_state.model,
-            query_batch["puzzle_identifiers"],
-            train_state.blank_identifier_id,
-        ).detach()
-        embedding_cosine_within = compute_embedding_cosine_within_task(
-            train_state.model,
-            query_batch["puzzle_identifiers"],
-            query_batch.get("task_identifiers"),
-            train_state.blank_identifier_id,
-        ).detach()
-
-        if count_tensor is not None:
-            scaling = torch.clamp(count_tensor.to(grad_embed.dtype), min=1.0)
-            metrics["grad_embed_norm"] = grad_embed * scaling
-            metrics["grad_trunk_norm"] = grad_trunk * scaling
-            metrics["embedding_cosine"] = embedding_cosine * scaling
-            metrics["embedding_cosine_within_task"] = embedding_cosine_within * scaling
-        else:
-            metrics["grad_embed_norm"] = grad_embed
-            metrics["grad_trunk_norm"] = grad_trunk
-            metrics["embedding_cosine"] = embedding_cosine
-            metrics["embedding_cosine_within_task"] = embedding_cosine_within
-    else:
-        metrics = {}
-
-    support_count = torch.clamp(support_total_effective, min=1.0)
-    support_loss_avg = (support_loss_accum / support_count).to(device=device, dtype=query_loss.dtype)
-    metrics["support_loss_avg"] = support_loss_avg.detach()
-    metrics["support_effective_count"] = support_count.detach()
-    metrics["meta_inner_steps"] = torch.tensor(float(inner_steps), device=device, dtype=query_loss.dtype)
-
-    trunk_frozen = False
-    if train_state.freeze_trunk_until_step is not None:
-        if train_state.step <= train_state.freeze_trunk_until_step:
-            trunk_frozen = True
-        else:
-            if train_state.trunk_frozen_active and rank == 0:
-                print(f"Unfreezing trunk optimizer at step {train_state.step}")
-            train_state.trunk_frozen_active = False
-            train_state.freeze_trunk_until_step = None
-
-    lr_this_step = None
-    for optim, base_lr, tag in zip(
-        train_state.optimizers, train_state.optimizer_lrs, train_state.optimizer_tags
-    ):
-        if tag == "trunk" and trunk_frozen:
-            optim.zero_grad()
-            continue
-        lr_this_step = compute_lr(base_lr, config, train_state)
-
-        for param_group in optim.param_groups:
-            param_group["lr"] = lr_this_step
-
-        optim.step()
-        optim.zero_grad()
-
-    if metrics is not None and len(metrics):
-        assert not any(v.requires_grad for v in metrics.values())
-
-        metric_keys = list(sorted(metrics.keys()))
-        metric_values = torch.stack([metrics[k] for k in metric_keys])
-        if world_size > 1:
-            dist.reduce(metric_values, dst=0)
-
-        if rank == 0:
-            metric_values = metric_values.cpu().numpy()
-            reduced_metrics = {k: metric_values[i] for i, k in enumerate(metric_keys)}
-
-            raw_metric_keys = {"support_loss_avg", "meta_inner_steps", "support_effective_count"}
-            raw_metrics = {}
-            for key in list(reduced_metrics.keys()):
-                if key in raw_metric_keys:
-                    raw_metrics[key] = reduced_metrics.pop(key) / max(world_size, 1)
-
-            count = max(reduced_metrics.get("count", query_effective_size), 1)
-            outer_scale = query_effective_size
-            scaled_metrics = {
-                f"train/{k}": v / (outer_scale if k.endswith("loss") else count)
-                for k, v in reduced_metrics.items()
-            }
-
-            for key, value in raw_metrics.items():
-                scaled_metrics[f"train/{key}"] = value
-
-            scaled_metrics["train/lr"] = lr_this_step
-            return scaled_metrics
-
-    return None
-
-    return None
-
 
 def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, global_batch_size: int, rank: int, world_size: int):
     train_state.step += 1
@@ -1052,180 +633,6 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
             reduced_metrics["train/lr"] = lr_this_step
             return reduced_metrics
 
-
-def evaluate_meta(
-    config: PretrainConfig,
-    train_state: TrainState,
-    support_loader: Optional[torch.utils.data.DataLoader],
-    support_metadata: Optional[PuzzleDatasetMetadata],
-    query_fetcher: Optional[MetaQueryFetcher],
-    rank: int,
-    world_size: int,
-) -> Optional[Dict[str, float]]:
-    if support_loader is None or support_metadata is None or query_fetcher is None:
-        return None
-    meta_cfg = config.meta_learning
-    if not meta_cfg.enabled:
-        return None
-
-    device = torch.device("cuda")
-    inner_steps = max(int(meta_cfg.inner_steps), 1)
-    inner_lr_trunk = float(meta_cfg.inner_lr) if meta_cfg.inner_lr is not None else float(config.lr)
-    inner_lr_embed = (
-        float(meta_cfg.inner_lr_embed) if meta_cfg.inner_lr_embed is not None else float(config.puzzle_emb_lr)
-    )
-
-    aggregated: Dict[str, Dict[str, torch.Tensor]] = {}
-
-    blank_identifier_id = train_state.blank_identifier_id
-    if support_metadata.blank_identifier_id is not None:
-        blank_identifier_id = int(support_metadata.blank_identifier_id)
-
-    model = train_state.model
-    original_mode = model.training
-
-    for set_name, support_batch, _global_batch_size in support_loader:
-        support_batch = {k: v.cuda(non_blocking=True) for k, v in support_batch.items()}
-        query_data = query_fetcher.fetch(support_batch["puzzle_identifiers"])
-        if query_data is None:
-            query_batch = {k: v.clone().to(device=device, non_blocking=True) for k, v in support_batch.items()}
-        else:
-            query_batch = {k: tensor.to(device=device, non_blocking=True) for k, tensor in query_data.items()}
-
-        support_mask = support_batch["puzzle_identifiers"] != blank_identifier_id
-        support_effective_size = max(int(support_mask.sum().item()), 1)
-
-        params = [param for param in model.parameters()]
-        param_backup = [param.detach().clone() for param in params]
-        puzzle_emb = _get_puzzle_embedding_module(model)
-        sparse_state = _SparseEmbeddingInnerLoopState() if puzzle_emb is not None else None
-
-        support_loss_sum = torch.zeros((), device=device, dtype=torch.float32)
-        support_effective_total = 0.0
-
-        with torch.autograd.set_grad_enabled(True):
-            model.train()
-            for _ in range(inner_steps):
-                for param in params:
-                    param.grad = None
-
-                _clear_sparse_embedding_grads(model)
-
-                with torch.device(device):
-                    support_carry = model.initial_carry(support_batch)  # type: ignore
-
-                _, support_loss, _, _, _ = model(carry=support_carry, batch=support_batch, return_keys=[])
-
-                (support_loss / support_effective_size).backward()
-                support_loss_sum += support_loss.detach().to(device=device, dtype=torch.float32)
-                support_effective_total += float(support_effective_size)
-
-                with torch.no_grad():
-                    for param in params:
-                        if param.grad is None:
-                            continue
-                        param.add_(param.grad, alpha=-inner_lr_trunk)
-
-                if puzzle_emb is not None and sparse_state is not None:
-                    _apply_sparse_embedding_inner_step(
-                        puzzle_emb=puzzle_emb,
-                        blank_id=blank_identifier_id,
-                        inner_lr=inner_lr_embed,
-                        state=sparse_state,
-                    )
-
-        for param in params:
-            param.grad = None
-        _clear_sparse_embedding_grads(model)
-
-        model.eval()
-        with torch.device(device):
-            query_carry = model.initial_carry(query_batch)  # type: ignore
-        with torch.no_grad():
-            query_carry, query_loss, metrics, _, _ = model(
-                carry=query_carry, batch=query_batch, return_keys=[]
-            )
-
-        puzzle_ids = query_batch["puzzle_identifiers"]
-        task_ids = query_batch.get("task_identifiers")
-        cosine_val = compute_embedding_cosine(
-            model,
-            puzzle_ids,
-            blank_identifier_id,
-        ).detach()
-        cosine_within_val = compute_embedding_cosine_within_task(
-            model,
-            puzzle_ids,
-            task_ids,
-            blank_identifier_id,
-        ).detach()
-        if "count" in metrics:
-            count_metric = metrics["count"].clamp(min=1)
-            metrics["embedding_cosine"] = cosine_val * count_metric
-            metrics["embedding_cosine_within_task"] = cosine_within_val * count_metric
-        else:
-            metrics["embedding_cosine"] = cosine_val
-            metrics["embedding_cosine_within_task"] = cosine_within_val
-
-        support_loss_sum = support_loss_sum.detach()
-        support_effective_tensor = torch.tensor(
-            float(support_effective_total), device=device, dtype=torch.float32
-        )
-        metrics["support_loss_sum"] = support_loss_sum
-        metrics["support_effective_count"] = support_effective_tensor
-
-        aggregated_set = aggregated.setdefault(set_name, {})
-        for key, value in metrics.items():
-            val = value.detach()
-            if key in aggregated_set:
-                aggregated_set[key] += val
-            else:
-                aggregated_set[key] = val.clone()
-
-        with torch.no_grad():
-            for param, backup in zip(params, param_backup):
-                param.copy_(backup)
-        if sparse_state is not None and puzzle_emb is not None:
-            _restore_sparse_embedding_from_backup(puzzle_emb, sparse_state)
-        _clear_sparse_embedding_grads(model)
-
-    model.train(original_mode)
-
-    if not aggregated:
-        return {} if rank == 0 else None
-
-    results: Dict[str, float] = {}
-    for set_name in sorted(aggregated.keys()):
-        metric_dict = aggregated[set_name]
-        metric_keys = sorted(metric_dict.keys())
-        metric_tensor = torch.stack([metric_dict[key] for key in metric_keys])
-        if world_size > 1:
-            dist.reduce(metric_tensor, dst=0)
-        if rank == 0:
-            metric_values = metric_tensor.cpu().numpy()
-            metrics_map = {key: float(metric_values[idx]) for idx, key in enumerate(metric_keys)}
-
-            support_loss_sum = metrics_map.pop("support_loss_sum", 0.0)
-            support_effective_count = metrics_map.pop("support_effective_count", 0.0)
-            if support_effective_count > 0:
-                results[f"meta_eval/{set_name}/support_loss_avg"] = support_loss_sum / support_effective_count
-            else:
-                results[f"meta_eval/{set_name}/support_loss_avg"] = 0.0
-            results[f"meta_eval/{set_name}/support_tokens"] = support_effective_count
-
-            count_value = metrics_map.pop("count", 0.0)
-            if count_value > 0:
-                for key, value in metrics_map.items():
-                    results[f"meta_eval/{set_name}/{key}"] = value / count_value
-                results[f"meta_eval/{set_name}/count"] = count_value
-            else:
-                for key, value in metrics_map.items():
-                    results[f"meta_eval/{set_name}/{key}"] = value
-                results[f"meta_eval/{set_name}/count"] = count_value
-
-    if rank == 0:
-        return results
-    return None
 
 def evaluate(
     config: PretrainConfig,
@@ -1514,50 +921,6 @@ def launch(hydra_config: DictConfig):
         print("NO EVAL DATA FOUND")
         eval_loader = eval_metadata = None
 
-    local_batch_size = config.global_batch_size // WORLD_SIZE
-
-    query_fetcher = None
-    if config.meta_learning.enabled:
-        if eval_loader is None:
-            raise ValueError("Meta-learning requires a test split for query batches.")
-        query_fetcher = MetaQueryFetcher(eval_loader.dataset, local_batch_size)  # type: ignore[arg-type]
-
-    meta_eval_support_loader: Optional[torch.utils.data.DataLoader] = None
-    meta_eval_support_metadata: Optional[PuzzleDatasetMetadata] = None
-    meta_eval_query_fetcher: Optional[MetaQueryFetcher] = None
-    if config.meta_learning.enabled and config.meta_eval is not None:
-        meta_eval_global_batch_size = (
-            config.meta_eval.global_batch_size
-            if config.meta_eval.global_batch_size is not None
-            else (config.eval_global_batch_size or config.global_batch_size)
-        )
-        if meta_eval_global_batch_size % WORLD_SIZE != 0:
-            raise ValueError("meta_eval.global_batch_size must be divisible by world_size.")
-        meta_eval_support_loader, meta_eval_support_metadata = create_dataloader(
-            config,
-            "train",
-            rank=RANK,
-            world_size=WORLD_SIZE,
-            test_set_mode=True,
-            epochs_per_iter=1,
-            global_batch_size=meta_eval_global_batch_size,
-            data_paths_override=config.meta_eval.data_paths,
-        )
-        meta_eval_query_loader, _meta_eval_query_metadata = create_dataloader(
-            config,
-            "test",
-            rank=RANK,
-            world_size=WORLD_SIZE,
-            test_set_mode=True,
-            epochs_per_iter=1,
-            global_batch_size=meta_eval_global_batch_size,
-            max_eval_augmentations=config.meta_eval.max_eval_augmentations,
-            data_paths_override=config.meta_eval.data_paths,
-        )
-        meta_eval_query_fetcher = MetaQueryFetcher(
-            meta_eval_query_loader.dataset, meta_eval_global_batch_size // WORLD_SIZE  # type: ignore[arg-type]
-        )
-
     try:
         evaluators = create_evaluators(config, eval_metadata)
     except:
@@ -1598,21 +961,9 @@ def launch(hydra_config: DictConfig):
             print("TRAIN")
         train_state.model.train()
         for set_name, batch, global_batch_size in train_loader:
-            if config.meta_learning.enabled:
-                assert query_fetcher is not None
-                metrics = train_batch_meta(
-                    config,
-                    train_state,
-                    batch,
-                    global_batch_size,
-                    rank=RANK,
-                    world_size=WORLD_SIZE,
-                    query_fetcher=query_fetcher,
-                )
-            else:
-                metrics = train_batch(
-                    config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE
-                )
+            metrics = train_batch(
+                config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE
+            )
 
             if RANK == 0 and metrics is not None and wandb is not None:
                 wandb.log(metrics, step=train_state.step)
@@ -1645,26 +996,6 @@ def launch(hydra_config: DictConfig):
                 rank=RANK, 
                 world_size=WORLD_SIZE,
                 cpu_group=CPU_PROCESS_GROUP)
-
-            if (
-                config.meta_learning.enabled
-                and meta_eval_support_loader is not None
-                and meta_eval_support_metadata is not None
-                and meta_eval_query_fetcher is not None
-            ):
-                meta_metrics = evaluate_meta(
-                    config,
-                    train_state_eval,
-                    meta_eval_support_loader,
-                    meta_eval_support_metadata,
-                    meta_eval_query_fetcher,
-                    rank=RANK,
-                    world_size=WORLD_SIZE,
-                )
-                if meta_metrics is not None:
-                    if metrics is None:
-                        metrics = {}
-                    metrics.update(meta_metrics)
 
             if RANK == 0 and metrics is not None and wandb is not None:
                 wandb.log(metrics, step=train_state.step)

@@ -29,11 +29,6 @@ checkpoint_every_n_steps: null
 halt_max_steps_eval: null
 puzzle_emb_reinit_strategy: "mean"
 
-meta_learning:
-  enabled: false
-  inner_lr: null
-  inner_steps: 8
-
 lr: 1e-4
 lr_min_ratio: 1.0
 lr_warmup_steps: 2000

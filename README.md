@@ -347,42 +347,6 @@ PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_
   +run_name="${run_name}" > pretrain_500k_noiseless.log &
 ```
 
-### FO-MAML-style Meta Pretraining
-- Use `pretrain.py --config-name cfg_pretrain_meta` to enable the meta loop (sets `meta_learning.enabled: true`, `inner_steps: 8` and points both train and test splits to the same dataset so support/query pairs share `puzzle_identifiers`).
-- Override on the CLI if you prefer another config: `+meta_learning.enabled=true meta_learning.inner_steps=8 meta_learning.inner_lr=5e-4` (leave `inner_lr` null to reuse the main `lr`).
-- Ensure the query split contains the same tasks as train (e.g. mirror the dataset under `data_paths_test`) so the loader can fetch matching query puzzles.
-- Expect slightly higher memory use—the inner loop keeps a parameter copy while applying support steps.
-- **Meta-eval dataset:** Use the existing ARC builder to materialise paired support (train) and query (test) splits that share identifiers. For example:
-```bash
-uv run python3 -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2-meta-eval \
-  --subsets evaluation2B
-```
-  The generated `train/` directory provides support puzzles, and `test/` is used for query evaluation.
-- **Running with meta evaluation (planned):** once the meta-aware eval path is wired up, pass the dataset root through `+meta_eval.data_paths=['data/arc2-meta-eval']` alongside the usual training arguments so evaluation can take a support batch, apply one inner update, and score the paired query batch.
-- `dataset.build_arc_dataset` now routes every subset's `test` examples to the query split by default; repeat `--test-set-names subset` if you want only specific subsets treated as queries.
-
-```bash
-run_name="metatrain_base_8x"
-uv pip install hf_transfer
-hf download Sanjin2024/TinyRecursiveModels-ARC-AGI-1 \
-  step_155718 \
-  --local-dir pretrained && \
-uv run python3 -m dataset.build_arc_dataset \
-  --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2-metatrain \
-  --subsets evaluation2A evaluation2C traininghard && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain_meta \
-  load_checkpoint="pretrained/step_155718" \
-  data_paths=['data/arc2-metatrain'] \
-  data_paths_test=['data/arc2-metatrain'] \
-  arch=trm \
-  +meta_eval.data_paths=['data/arc2-meta-eval'] \
-  +run_name="${run_name}" > metatrain_base_8x.log &
-```
-
 ### ctd pre-training synth
 ```bash
 uv pip install hf_transfer
