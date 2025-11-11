@@ -45,7 +45,7 @@ uv run python3 -m dataset.build_arc_dataset \
   --output-dir data/arc2-pretrain \
   --subsets concept training2 evaluation2 \
   --test-set-name evaluation2 && \
-PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
   data_paths=['data/rearc-pretrain','data/arc2-pretrain'] \
   arch=trm \

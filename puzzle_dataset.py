@@ -66,7 +66,6 @@ class PuzzleDataset(IterableDataset):
         prev_ignore_label_id = None
         prev_blank_identifier_id = None
         prev_sets = None
-        prev_num_identifiers = None
         mean_puzzle_examples = 0
         total_puzzles = 0
         total_groups = 0
@@ -80,7 +79,6 @@ class PuzzleDataset(IterableDataset):
                 prev_ignore_label_id = current_metadata.ignore_label_id
                 prev_blank_identifier_id = current_metadata.blank_identifier_id
                 prev_sets = current_metadata.sets
-                prev_num_identifiers = current_metadata.num_puzzle_identifiers
             else:
                 assert prev_seq_len == current_metadata.seq_len
                 assert prev_vocab_size == current_metadata.vocab_size
@@ -88,7 +86,6 @@ class PuzzleDataset(IterableDataset):
                 assert prev_ignore_label_id == current_metadata.ignore_label_id
                 assert prev_blank_identifier_id == current_metadata.blank_identifier_id
                 assert prev_sets == current_metadata.sets
-                assert prev_num_identifiers == current_metadata.num_puzzle_identifiers
             mean_puzzle_examples += current_metadata.mean_puzzle_examples*current_metadata.total_puzzles
             total_puzzles += current_metadata.total_puzzles
             total_groups += current_metadata.total_groups
