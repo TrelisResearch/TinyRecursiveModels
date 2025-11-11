@@ -14,7 +14,15 @@ from dataset.common import PuzzleDatasetMetadata
 from argdantic import ArgParser
 from pydantic import BaseModel
 
-def _sample_batch(rng: np.random.Generator, group_order: np.ndarray, puzzle_indices: np.ndarray, group_indices: np.ndarray, start_index: int, global_batch_size: int):
+def _sample_batch(
+    rng: np.random.Generator,
+    group_order: np.ndarray,
+    puzzle_indices: np.ndarray,
+    group_indices: np.ndarray,
+    start_index: int,
+    global_batch_size: int,
+    max_examples_per_puzzle: Optional[int] = None,
+):
     # Pack examples into a full batch
     batch = []
     batch_puzzle_indices = []
@@ -30,11 +38,19 @@ def _sample_batch(rng: np.random.Generator, group_order: np.ndarray, puzzle_indi
         puzzle_start = puzzle_indices[puzzle_id]
         puzzle_size = int(puzzle_indices[puzzle_id + 1] - puzzle_start)
 
-        append_size = min(puzzle_size, global_batch_size - current_size)
+        allowed = puzzle_size if max_examples_per_puzzle is None else min(max_examples_per_puzzle, puzzle_size)
+        if allowed <= 0:
+            continue
+
+        append_size = min(allowed, global_batch_size - current_size)
 
         # Put into batch
         batch_puzzle_indices.append(np.full(append_size, puzzle_id, dtype=np.int32))
-        batch.append(puzzle_start + np.random.choice(puzzle_size, append_size, replace=False))
+        if append_size == puzzle_size:
+            choices = rng.permutation(puzzle_size)
+        else:
+            choices = rng.choice(puzzle_size, append_size, replace=False)
+        batch.append(puzzle_start + choices)
 
         current_size += append_size
 
@@ -52,6 +68,7 @@ class PuzzleDatasetConfig(pydantic.BaseModel):
     max_eval_augmentations: Optional[int] = None
     grid_noise_prob: float = 0.0
     grid_noise_fraction: float = 0.0
+    max_examples_per_puzzle: Optional[int] = None
 
 class PuzzleDataset(IterableDataset):
     def __init__(self, config: PuzzleDatasetConfig, split: str = "train"):
@@ -335,6 +352,7 @@ class PuzzleDataset(IterableDataset):
                     group_indices=dataset["group_indices"],
                     start_index=start_index,
                     global_batch_size=self.config.global_batch_size,
+                    max_examples_per_puzzle=self.config.max_examples_per_puzzle,
                 )
 
                 # Select current rank and collate

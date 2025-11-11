@@ -23,6 +23,7 @@ if os.environ.get("WANDB_DISABLED", "").lower() in {"1", "true", "yes"}:
 import coolname
 import hydra
 import pydantic
+from pydantic import Field
 from omegaconf import DictConfig
 from adam_atan2_pytorch import AdamAtan2
 from puzzle_dataset import PuzzleDataset, PuzzleDatasetConfig, PuzzleDatasetMetadata
@@ -107,6 +108,8 @@ class PretrainConfig(pydantic.BaseModel):
     dataloader_persistent_workers: bool = True
     grid_noise_prob: Optional[float] = None
     grid_noise_fraction: Optional[float] = None
+    max_examples_per_puzzle: Optional[int] = Field(default=None, ge=1)
+    max_eval_examples_per_puzzle: Optional[int] = Field(default=None, ge=1)
 
 @dataclass
 class TrainState:
@@ -905,6 +908,7 @@ def launch(hydra_config: DictConfig):
         global_batch_size=config.global_batch_size,
         rank=RANK,
         world_size=WORLD_SIZE,
+        max_examples_per_puzzle=config.max_examples_per_puzzle,
     )
     try:
         eval_loader, eval_metadata = create_dataloader(
@@ -916,6 +920,7 @@ def launch(hydra_config: DictConfig):
             rank=RANK,
             world_size=WORLD_SIZE,
             max_eval_augmentations=config.eval_max_augmentations,
+            max_examples_per_puzzle=config.max_eval_examples_per_puzzle,
         )
     except:
         print("NO EVAL DATA FOUND")
