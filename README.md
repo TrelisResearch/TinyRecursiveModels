@@ -32,6 +32,7 @@ export GIT_USER_EMAIL="your@email.com"
 ```bash
 run_name="pretrain_rearc_100k"
 git pull && \
+git switch main && \
 find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
