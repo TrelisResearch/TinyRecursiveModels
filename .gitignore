@@ -25,5 +25,5 @@ build/
 *.json
 wandb/
 checkpoints/
-!kaggle/combined/*.json
 arxiv_upload/*
+!*.json.gz
