@@ -21,6 +21,7 @@ class DataProcessConfig(BaseModel):
     test_set_names: List[str] = Field(default_factory=list)
     legacy_test_set_name: Optional[str] = Field(default=None, alias="test_set_name")
     legacy_test_set_name2: Optional[str] = Field(default=None, alias="test_set_name2")
+    train_only_subsets: List[str] = Field(default_factory=list)
     seed: int = 42
     num_aug: int = 1000
     puzzle_identifiers_start: int = 1 # start > 1 to handle multiple datasets
@@ -228,11 +229,23 @@ def load_puzzles_arcagi(config: DataProcessConfig):
                     break
                     
             assert test_examples_dest is not None
+
+            train_only = subset_name in config.train_only_subsets
+            actual_test_dest = train_examples_dest if train_only else test_examples_dest
             
-            if test_examples_dest[0] == "test":
+            if actual_test_dest[0] == "test":
                 test_puzzles[name] = puzzle
                 
-            convert_single_arc_puzzle(results, name, puzzle, config.num_aug, {"train": train_examples_dest, "test": test_examples_dest})
+            convert_single_arc_puzzle(
+                results,
+                name,
+                puzzle,
+                config.num_aug,
+                {
+                    "train": train_examples_dest,
+                    "test": actual_test_dest
+                }
+            )
             total_puzzles += 1
 
     print (f"Total puzzles: {total_puzzles}")
@@ -344,7 +357,6 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
 
 
 

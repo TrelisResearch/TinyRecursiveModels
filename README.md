@@ -27,7 +27,30 @@ export GIT_USER_EMAIL="your@email.com"
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
 
-## Pretraining Ablations for shorter runtime
+## Pretraining Ablations
+### 100k epochs adding re-arc
+```bash
+run_name="pretrain_rearc_100k"
+git pull && \
+find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/rearc-pretrain \
+  --train-only-subsets rearc \
+  --num-aug 0 \
+  --subsets rearc && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-pretrain \
+  --subsets concept training2 evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/rearc-pretrain','data/arc2-pretrain'] \
+  arch=trm \
+  +project_name='Arc2concept-aug-1000-ACT-torch' \
+  +run_name="${run_name}" > pretrain_rearc_100k.log &
+```
 ### No translations and 256 augs only
 
 ```bash
