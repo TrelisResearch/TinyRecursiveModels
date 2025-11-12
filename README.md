@@ -50,7 +50,7 @@ PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d 
   data_paths=['data/rearc-pretrain','data/arc2-pretrain'] \
   data_paths_test=['data/arc2-pretrain'] \
   arch=trm \
-  max_examples_per_puzzle=5 \
+  +max_examples_per_puzzle=3 \
   +project_name='Arc2concept-aug-1000-ACT-torch' \
   +run_name="${run_name}" > pretrain_rearc_100k.log &
 ```
