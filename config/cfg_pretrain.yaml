@@ -40,7 +40,7 @@ weight_decay: 0.1
 puzzle_emb_weight_decay: 0.1
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1e-4
+puzzle_emb_lr: 2e-3
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
