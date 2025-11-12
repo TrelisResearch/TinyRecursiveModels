@@ -37,12 +37,13 @@ find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/rearc-pretrain \
-  --train-only-subsets rearc \
   --num-aug 0 \
-  --subsets rearc && \
+  --subsets rearc \
+  --train-only-subsets rearc && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/arc2-pretrain \
+  --puzzle-identifiers-start <num_ids_from_rearc> \
   --subsets concept training2 evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \

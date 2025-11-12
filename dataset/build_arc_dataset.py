@@ -49,6 +49,7 @@ PuzzleIdSeparator = "|||"
 @dataclass
 class ARCPuzzle:
     id: str
+    base_id: str
     examples: List[Tuple[np.ndarray, np.ndarray]]
 
     
@@ -142,7 +143,7 @@ def inverse_aug(name: str):
 def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count: int, dest_mapping: Dict[str, Tuple[str, str]]):
     # Convert
     dests = set(dest_mapping.values())
-    converted = {dest: ARCPuzzle(name, []) for dest in dests}
+    converted = {dest: ARCPuzzle(name, name, []) for dest in dests}
     for example_type, examples in puzzle.items():
         # Map to target split
         dest = dest_mapping[example_type]
@@ -158,7 +159,14 @@ def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count:
             aug_name, _map_grid = aug(name)
 
             # Check duplicate
-            augmented = {dest: ARCPuzzle(aug_name, [(_map_grid(input), _map_grid(label)) for (input, label) in puzzle.examples]) for dest, puzzle in converted.items()}
+            augmented = {
+                dest: ARCPuzzle(
+                    aug_name,
+                    puzzle.base_id,
+                    [(_map_grid(input), _map_grid(label)) for (input, label) in puzzle.examples]
+                )
+                for dest, puzzle in converted.items()
+            }
             h = puzzle_hash(augmented)
             if h not in hashes:
                 hashes.add(h)
@@ -265,8 +273,8 @@ def convert_dataset(config: DataProcessConfig):
         for subset_name, subset in split.items():
             for group in subset:
                 for puzzle in group:
-                    if puzzle.id not in identifier_map:
-                        identifier_map[puzzle.id] = num_identifiers
+                    if puzzle.base_id not in identifier_map:
+                        identifier_map[puzzle.base_id] = num_identifiers
                         num_identifiers += 1
     print (f"Total puzzle IDs (including <blank>): {num_identifiers}")
 
@@ -305,7 +313,7 @@ def convert_dataset(config: DataProcessConfig):
                         total_examples += 1
 
                     results["puzzle_indices"].append(example_id)
-                    results["puzzle_identifiers"].append(identifier_map[puzzle.id])
+                    results["puzzle_identifiers"].append(identifier_map[puzzle.base_id])
                     
                     puzzle_id += 1
                     total_puzzles += 1
@@ -357,8 +365,6 @@ def main(config: DataProcessConfig):
 
 if __name__ == "__main__":
     cli()
-
-
 
 
 
