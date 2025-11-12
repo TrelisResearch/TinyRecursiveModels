@@ -54,6 +54,9 @@ PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d 
   +project_name='Arc2concept-aug-1000-ACT-torch' \
   +run_name="${run_name}" > pretrain_rearc_100k.log &
 ```
+Optionally continue pretraining:
+`  load_checkpoint="checkpoints/Arc2concept-aug-1000-ACT-torch/pretrain_rearc_100k/step_118445" \`
+
 ### No translations and 256 augs only
 
 ```bash
