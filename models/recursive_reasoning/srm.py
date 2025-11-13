@@ -134,8 +134,8 @@ class SimpleRecursiveReasoningModel(nn.Module):
         self.shared_puzzle_emb_len = shared_tokens
         self.puzzle_emb_len = variant_tokens + shared_tokens
 
-        self.min_cycles = max(1, config.cycles_start or config.cycles)
-        self.max_cycles = max(self.min_cycles, config.cycles_end or config.cycles)
+        self.min_cycles = max(1, self.config.cycles_start or self.config.cycles)
+        self.max_cycles = max(self.min_cycles, self.config.cycles_end or self.config.cycles)
         self.current_cycles = max(1, self.min_cycles)
 
         if self.config.pos_encodings == "rope":
