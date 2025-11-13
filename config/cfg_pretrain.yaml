@@ -1,7 +1,7 @@
 # ARC training config
 
 defaults:
-  - arch: trm
+  - arch: srm
   - _self_
 
 hydra:
@@ -37,15 +37,17 @@ lr_warmup_steps: 2000
 beta1: 0.9
 beta2: 0.95
 weight_decay: 0.1
-puzzle_emb_weight_decay: 0.1
+puzzle_emb_weight_decay: 1e-5
 
 # Hyperparams - Puzzle embeddings training
-puzzle_emb_lr: 1e-2
+puzzle_emb_lr: 5e-3
+shared_puzzle_emb_lr: 3e-4
+shared_puzzle_emb_weight_decay: 1e-4
 
 seed: 0
 min_eval_interval: 0 # when to start the eval
 
 ema: True # use Exponential-Moving-Average
-ema_rate: 0.999 # EMA-rate
-freeze_weights: False # If True, freeze weights and only learn the embeddings
+ema_rate: 0.999
+freeze_weights: False
 freeze_weights_epochs: null

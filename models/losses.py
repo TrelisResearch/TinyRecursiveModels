@@ -101,3 +101,62 @@ class ACTLossHead(nn.Module):
 
         return new_carry, lm_loss + 0.5 * (q_halt_loss + q_continue_loss), metrics, detached_outputs, new_carry.halted.all()
 
+    def set_cycle_progress(self, progress: float):
+        setter = getattr(self.model, "set_cycle_progress", None)
+        if callable(setter):
+            setter(progress)
+
+
+class SimpleSeqLossHead(nn.Module):
+    """
+    Minimal loss wrapper for non-ACT models.
+    """
+
+    def __init__(self, model: nn.Module, loss_type: str):
+        super().__init__()
+        self.model = model
+        self.loss_fn = globals()[loss_type]
+
+    def initial_carry(self, *args, **kwargs):
+        return None
+
+    def forward(
+        self,
+        return_keys: Sequence[str],
+        **model_kwargs,
+    ) -> Tuple[Any, torch.Tensor, Dict[str, torch.Tensor], Optional[Dict[str, torch.Tensor]], torch.Tensor]:
+        batch = model_kwargs.get("batch")
+        if batch is None:
+            raise ValueError("SimpleSeqLossHead expects 'batch' kwarg containing training data.")
+
+        new_carry, outputs = self.model(**model_kwargs)
+        logits = outputs["logits"]
+        labels = batch["labels"]
+
+        mask = (labels != IGNORE_LABEL_ID)
+        loss_counts = mask.sum(-1)
+        loss_divisor = loss_counts.clamp_min(1).unsqueeze(-1)
+
+        per_token_loss = self.loss_fn(logits, labels, ignore_index=IGNORE_LABEL_ID, valid_mask=mask)
+        loss = (per_token_loss / loss_divisor).sum()
+
+        preds = torch.argmax(logits, dim=-1)
+        is_correct = (preds == labels) & mask
+        seq_is_correct = is_correct.sum(-1) == loss_counts
+
+        metrics = {
+            "count": loss_counts.gt(0).sum(),
+            "accuracy": (is_correct.to(torch.float32) / loss_divisor).sum(),
+            "exact_accuracy": seq_is_correct.sum(),
+            "steps": torch.tensor(1, device=logits.device, dtype=torch.int32),
+            "lm_loss": loss.detach(),
+        }
+
+        detached_outputs = {k: outputs[k].detach() for k in return_keys if k in outputs}
+        all_finish = torch.tensor(True, device=logits.device)
+        return new_carry, loss, metrics, detached_outputs, all_finish
+
+    def set_cycle_progress(self, progress: float):
+        setter = getattr(self.model, "set_cycle_progress", None)
+        if callable(setter):
+            setter(progress)

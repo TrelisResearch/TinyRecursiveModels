@@ -87,6 +87,7 @@ class PuzzleDataset(IterableDataset):
         total_puzzles = 0
         total_groups = 0
         num_identifiers = 0
+        num_base_identifiers = 0
         for dataset_path in config.dataset_paths:
             current_metadata = self._load_metadata(dataset_path)
             if prev_seq_len is None:
@@ -107,6 +108,11 @@ class PuzzleDataset(IterableDataset):
             total_puzzles += current_metadata.total_puzzles
             total_groups += current_metadata.total_groups
             num_identifiers += current_metadata.num_puzzle_identifiers
+            num_base_identifiers += (
+                current_metadata.num_base_puzzle_identifiers
+                if current_metadata.num_base_puzzle_identifiers is not None
+                else current_metadata.num_puzzle_identifiers
+            )
         mean_puzzle_examples = mean_puzzle_examples / total_puzzles
 
         self.metadata = PuzzleDatasetMetadata(
@@ -116,6 +122,7 @@ class PuzzleDataset(IterableDataset):
             ignore_label_id=prev_ignore_label_id,
             blank_identifier_id=prev_blank_identifier_id,
             num_puzzle_identifiers=num_identifiers,
+            num_base_puzzle_identifiers=num_base_identifiers,
             total_groups=total_groups,
             mean_puzzle_examples=mean_puzzle_examples,
             total_puzzles=total_puzzles,
@@ -146,6 +153,7 @@ class PuzzleDataset(IterableDataset):
 
             # Keep indices in memory
             "puzzle_identifiers": None,
+            "base_puzzle_identifiers": None,
             "puzzle_indices": None,
             "group_indices": None
         }
@@ -158,10 +166,13 @@ class PuzzleDataset(IterableDataset):
                     set_name_ = set_name + str(i)
                 else:
                     set_name_ = set_name
-                self._data[set_name_] = {
-                    field_name: np.load(os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy"), mmap_mode=mmap_mode)
-                    for field_name, mmap_mode in field_mmap_modes.items()
-                }
+                dataset_fields = {}
+                for field_name, mmap_mode in field_mmap_modes.items():
+                    file_path = os.path.join(dataset_path, self.split, f"{set_name}__{field_name}.npy")
+                    if field_name == "base_puzzle_identifiers" and not os.path.exists(file_path):
+                        continue
+                    dataset_fields[field_name] = np.load(file_path, mmap_mode=mmap_mode)
+                self._data[set_name_] = dataset_fields
 
                 if self.config.test_set_mode and self.config.max_eval_augmentations is not None:
                     self._data[set_name_] = self._limit_eval_augmentations(self._data[set_name_], self.config.max_eval_augmentations)
@@ -186,10 +197,12 @@ class PuzzleDataset(IterableDataset):
         inputs = dataset["inputs"]
         labels = dataset["labels"]
         puzzle_ids = dataset["puzzle_identifiers"]
+        base_ids = dataset.get("base_puzzle_identifiers")
 
         new_inputs = []
         new_labels = []
         new_puzzle_ids = []
+        new_base_ids = [] if base_ids is not None else None
         new_puzzle_indices = [0]
         new_group_indices = [0]
 
@@ -207,6 +220,8 @@ class PuzzleDataset(IterableDataset):
                 new_inputs.append(inputs[ex_start:ex_end])
                 new_labels.append(labels[ex_start:ex_end])
                 new_puzzle_ids.append(puzzle_ids[puzzle_idx])
+                if new_base_ids is not None:
+                    new_base_ids.append(base_ids[puzzle_idx])
                 new_puzzle_indices.append(new_puzzle_indices[-1] + (ex_end - ex_start))
 
             new_group_indices.append(new_group_indices[-1] + keep)
@@ -222,6 +237,8 @@ class PuzzleDataset(IterableDataset):
             "puzzle_indices": np.asarray(new_puzzle_indices, dtype=puzzle_indices.dtype),
             "group_indices": np.asarray(new_group_indices, dtype=group_indices.dtype),
         }
+        if new_base_ids is not None:
+            limited_dataset["base_puzzle_identifiers"] = np.asarray(new_base_ids, dtype=base_ids.dtype)
         return limited_dataset
 
     def _collate_batch(self, batch):
@@ -241,6 +258,8 @@ class PuzzleDataset(IterableDataset):
                 "puzzle_identifiers": self.metadata.blank_identifier_id,
                 "task_identifiers": -1
             }
+            if "base_puzzle_identifiers" in batch:
+                pad_values["base_puzzle_identifiers"] = self.metadata.blank_identifier_id
             batch = {k: np.pad(v, ((0, pad_size), ) + ((0, 0), ) * (v.ndim - 1), constant_values=pad_values[k]) for k, v in batch.items()}
 
         # To tensor
@@ -320,12 +339,15 @@ class PuzzleDataset(IterableDataset):
 
                     puzzle_indices.append(puzzle_index)
                 
-                batch = self._collate_batch({
+                batch_dict = {
                     "inputs": dataset["inputs"][local_start: local_end],
                     "labels": dataset["labels"][local_start: local_end],
                     "puzzle_identifiers": dataset["puzzle_identifiers"][puzzle_indices],
                     "task_identifiers": dataset["puzzle_group_ids"][puzzle_indices]
-                })
+                }
+                if "base_puzzle_identifiers" in dataset:
+                    batch_dict["base_puzzle_identifiers"] = dataset["base_puzzle_identifiers"][puzzle_indices]
+                batch = self._collate_batch(batch_dict)
                 self._apply_grid_noise(batch)
 
                 yield set_name, batch, end_index - start_index
@@ -387,12 +409,15 @@ class PuzzleDataset(IterableDataset):
 
             batch_indices = batch_indices[self.config.rank * self.local_batch_size: (self.config.rank + 1) * self.local_batch_size]
             batch_puzzle_indices = batch_puzzle_indices[self.config.rank * self.local_batch_size: (self.config.rank + 1) * self.local_batch_size]
-            batch = self._collate_batch({
+            batch_dict = {
                 "inputs": dataset["inputs"][batch_indices],
                 "labels": dataset["labels"][batch_indices],
                 "puzzle_identifiers": dataset["puzzle_identifiers"][batch_puzzle_indices],
                 "task_identifiers": dataset["puzzle_group_ids"][batch_puzzle_indices]
-            })
+            }
+            if "base_puzzle_identifiers" in dataset:
+                batch_dict["base_puzzle_identifiers"] = dataset["base_puzzle_identifiers"][batch_puzzle_indices]
+            batch = self._collate_batch(batch_dict)
             self._apply_grid_noise(batch)
 
             yield state["name"], batch, global_effective_batch_size

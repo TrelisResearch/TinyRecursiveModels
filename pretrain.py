@@ -78,6 +78,8 @@ class PretrainConfig(pydantic.BaseModel):
     # Puzzle embedding
     puzzle_emb_lr: float
     puzzle_emb_weight_decay: float
+    shared_puzzle_emb_lr: Optional[float] = None
+    shared_puzzle_emb_weight_decay: Optional[float] = None
     puzzle_emb_reinit_strategy: str = "mean"
 
     # Names
@@ -181,6 +183,8 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
         num_puzzle_identifiers=train_metadata.num_puzzle_identifiers,
         causal=False  # Non-autoregressive
     )
+    if train_metadata.num_base_puzzle_identifiers is not None:
+        model_cfg.setdefault("num_base_puzzle_identifiers", train_metadata.num_base_puzzle_identifiers)
     if config.halt_max_steps_eval is not None:
         model_cfg.setdefault("halt_max_steps_eval", config.halt_max_steps_eval)
 
@@ -208,65 +212,77 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
     # Optimizers and lr
     optimizer_tags: List[str]
 
-    if config.arch.puzzle_emb_ndim == 0:
+    embedding_entries: List[Tuple[str, Any, float, float]] = []
+    core_model = getattr(model, "model", None)
+    inner_model = getattr(core_model, "inner", None) if core_model is not None else None
+    variant_module = getattr(core_model, "puzzle_emb", None) if core_model is not None else None
+    shared_module = getattr(core_model, "shared_puzzle_emb", None) if core_model is not None else None
+    # Newer models keep puzzle embedding under inner
+    if inner_model is not None:
+        variant_module = getattr(inner_model, "puzzle_emb", variant_module)
+        shared_module = getattr(inner_model, "shared_puzzle_emb", shared_module)
+    if shared_module is not None and getattr(config.arch, "shared_puzzle_emb_ndim", 0) > 0:
+        shared_lr = getattr(config, "shared_puzzle_emb_lr", None) or config.puzzle_emb_lr
+        shared_wd = getattr(config, "shared_puzzle_emb_weight_decay", None) or config.puzzle_emb_weight_decay
+        embedding_entries.append(("shared_embedding", shared_module, shared_lr, shared_wd))
+    if variant_module is not None and config.arch.puzzle_emb_ndim > 0:
+        embedding_entries.append(("embedding", variant_module, config.puzzle_emb_lr, config.puzzle_emb_weight_decay))
+
+    optimizers = []
+    optimizer_lrs = []
+    optimizer_tags = []
+
+    has_embeddings = len(embedding_entries) > 0
+
+    if has_embeddings:
+        for tag, module, base_lr, weight_decay in embedding_entries:
+            optimizers.append(
+                CastedSparseEmbeddingSignSGD_Distributed(
+                    module.buffers(),  # type: ignore
+                    lr=0,
+                    weight_decay=weight_decay,
+                    world_size=world_size,
+                )
+            )
+            optimizer_lrs.append(base_lr)
+            optimizer_tags.append(tag)
+
+    if not has_embeddings:
         optimizers = [
             AdamAtan2(
                 model.parameters(),
                 lr=0.0001,  # Needs to be set by scheduler
                 weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
+                betas=(config.beta1, config.beta2),
             )
         ]
-        optimizer_lrs = [
-            config.lr
-        ]
+        optimizer_lrs = [config.lr]
         optimizer_tags = ["trunk"]
     elif config.freeze_weights:
         freeze_epochs = config.freeze_weights_epochs
         add_trunk_optimizer = freeze_epochs is not None and max(0, freeze_epochs) < config.epochs
-        optimizers = [
-            CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
-                lr=0,  # Needs to be set by scheduler
-                weight_decay=config.puzzle_emb_weight_decay,
-                world_size=world_size
-            )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr
-        ]
-        optimizer_tags = ["embedding"]
         if add_trunk_optimizer:
             optimizers.append(
                 AdamAtan2(
                     model.parameters(),
-                    lr=0.0001,  # Needs to be set by scheduler
+                    lr=0.0001,
                     weight_decay=config.weight_decay,
-                    betas=(config.beta1, config.beta2)
+                    betas=(config.beta1, config.beta2),
                 )
             )
             optimizer_lrs.append(config.lr)
             optimizer_tags.append("trunk")
     else:
-        optimizers = [
-            CastedSparseEmbeddingSignSGD_Distributed(
-                model.model.puzzle_emb.buffers(),  # type: ignore
-                lr=0,  # Needs to be set by scheduler
-                weight_decay=config.puzzle_emb_weight_decay,
-                world_size=world_size
-            ),
+        optimizers.append(
             AdamAtan2(
                 model.parameters(),
                 lr=0.0001,  # Needs to be set by scheduler
                 weight_decay=config.weight_decay,
-                betas=(config.beta1, config.beta2)
+                betas=(config.beta1, config.beta2),
             )
-        ]
-        optimizer_lrs = [
-            config.puzzle_emb_lr,
-            config.lr
-        ]
-        optimizer_tags = ["embedding", "trunk"]
+        )
+        optimizer_lrs.append(config.lr)
+        optimizer_tags.append("trunk")
 
     return model, optimizers, optimizer_lrs, optimizer_tags
 
@@ -381,29 +397,55 @@ def load_checkpoint(model: nn.Module, config: PretrainConfig):
         state_dict = _align_state_dict_for_compile(state_dict, model)
 
         # Resize and reset puzzle emb if needed
+        def _maybe_reset_embedding(module, key_candidates: List[str]):
+            if module is None:
+                return
+            for name in key_candidates:
+                if name in state_dict:
+                    weights = state_dict[name]
+                    expected_shape: torch.Size = module.weights.shape  # type: ignore
+                    if weights.shape != expected_shape:
+                        print(f"Resetting embedding {name} as shape is different. Found {weights.shape}, Expected {expected_shape}")
+                        strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
+                        weights_float = weights.to(torch.float32)
+                        mean_vec = torch.mean(weights_float, dim=0, keepdim=True)
+                        if strategy == "mean":
+                            state_dict[name] = mean_vec.expand(expected_shape).to(weights.dtype).contiguous()
+                        elif strategy == "normal":
+                            std_vec = torch.std(weights_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
+                            noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
+                            state_dict[name] = (noise * std_vec + mean_vec).to(weights.dtype).contiguous()
+                        else:
+                            raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
+                    break
+
+        # Variant embeddings
         puzzle_emb_keys = [
             "model.inner.puzzle_emb.weights",
             "_orig_mod.model.inner.puzzle_emb.weights",
+            "model.puzzle_emb.weights",
+            "_orig_mod.model.puzzle_emb.weights",
         ]
-        for puzzle_emb_name in puzzle_emb_keys:
-            if puzzle_emb_name in state_dict:
-                expected_shape: torch.Size = model.model.puzzle_emb.weights.shape  # type: ignore
-                puzzle_emb = state_dict[puzzle_emb_name]
-                if puzzle_emb.shape != expected_shape:
-                    print(f"Resetting puzzle embedding as shape is different. Found {puzzle_emb.shape}, Expected {expected_shape}")
-                    strategy = getattr(config, "puzzle_emb_reinit_strategy", "mean").lower()
-                    puzzle_emb_float = puzzle_emb.to(torch.float32)
-                    mean_vec = torch.mean(puzzle_emb_float, dim=0, keepdim=True)
-                    if strategy == "mean":
-                        state_dict[puzzle_emb_name] = mean_vec.expand(expected_shape).to(puzzle_emb.dtype).contiguous()
-                    elif strategy == "normal":
-                        std_vec = torch.std(puzzle_emb_float, dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
-                        noise = torch.randn(expected_shape, device=mean_vec.device, dtype=torch.float32)
-                        new_weights = noise * std_vec + mean_vec
-                        state_dict[puzzle_emb_name] = new_weights.to(puzzle_emb.dtype).contiguous()
-                    else:
-                        raise ValueError(f"Unsupported puzzle_emb_reinit_strategy: {strategy}")
-                break
+        inner_model = getattr(model, "model", None)
+        variant_module = getattr(model, "puzzle_emb", None)
+        shared_module = getattr(model, "shared_puzzle_emb", None)
+        if inner_model is not None:
+            variant_module = getattr(inner_model, "puzzle_emb", variant_module)
+            shared_module = getattr(inner_model, "shared_puzzle_emb", shared_module)
+            inner_core = getattr(inner_model, "inner", None)
+            if inner_core is not None:
+                variant_module = getattr(inner_core, "puzzle_emb", variant_module)
+                shared_module = getattr(inner_core, "shared_puzzle_emb", shared_module)
+
+        _maybe_reset_embedding(variant_module, puzzle_emb_keys)
+
+        shared_emb_keys = [
+            "model.inner.shared_puzzle_emb.weights",
+            "_orig_mod.model.inner.shared_puzzle_emb.weights",
+            "model.shared_puzzle_emb.weights",
+            "_orig_mod.model.shared_puzzle_emb.weights",
+        ]
+        _maybe_reset_embedding(shared_module, shared_emb_keys)
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False, assign=True)
         if len(unexpected_keys):
             print(f"Warning: unexpected checkpoint keys skipped: {unexpected_keys[:5]}{'...' if len(unexpected_keys) > 5 else ''}")
@@ -442,12 +484,10 @@ def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
         else:
             trunk_sq += grad_sq
 
-    core_model = getattr(model, "model", None)
-    if core_model is not None:
-        inner = getattr(core_model, "inner", None)
-        puzzle_emb = getattr(inner, "puzzle_emb", None)
-        if puzzle_emb is not None and getattr(puzzle_emb, "local_weights", None) is not None:
-            local_grad = puzzle_emb.local_weights.grad  # type: ignore
+    for attr in ("puzzle_emb", "shared_puzzle_emb"):
+        module = _locate_named_module(model, attr)
+        if module is not None and getattr(module, "local_weights", None) is not None:
+            local_grad = module.local_weights.grad  # type: ignore
             if local_grad is not None:
                 embed_sq += local_grad.detach().float().pow(2).sum()
 
@@ -455,9 +495,27 @@ def compute_grad_norms(model: nn.Module) -> Tuple[torch.Tensor, torch.Tensor]:
 
 
 def _get_puzzle_embedding_module(model: nn.Module):
-    core_model = getattr(model, "model", None)
-    inner = getattr(core_model, "inner", None) if core_model is not None else None
-    return getattr(inner, "puzzle_emb", None) if inner is not None else None
+    return _locate_named_module(model, "puzzle_emb")
+
+
+def _locate_named_module(model: nn.Module, attr: str):
+    visited = set()
+    stack = [model]
+    while stack:
+        current = stack.pop()
+        if current is None:
+            continue
+        obj_id = id(current)
+        if obj_id in visited:
+            continue
+        visited.add(obj_id)
+        if hasattr(current, attr):
+            module = getattr(current, attr)
+            if module is not None:
+                return module
+        stack.append(getattr(current, "model", None))
+        stack.append(getattr(current, "inner", None))
+    return None
 
 
 def compute_embedding_cosine(model: nn.Module, identifiers: torch.Tensor, blank_id: int) -> torch.Tensor:
@@ -541,6 +599,8 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
     train_state.step += 1
     if train_state.step > train_state.total_steps:  # At most train_total_steps
         return
+
+    _set_cycle_progress(train_state.model, train_state.step, train_state.total_steps)
 
     # To device
     batch = {k: v.cuda() for k, v in batch.items()}
@@ -650,6 +710,7 @@ def evaluate(
     reduced_metrics = None
 
     with torch.inference_mode():
+        _set_cycle_progress(train_state.model, train_state.step, train_state.total_steps)
         return_keys = set(config.eval_save_outputs)
         for evaluator in evaluators:
             evaluator.begin_eval()
@@ -1023,3 +1084,8 @@ def launch(hydra_config: DictConfig):
 
 if __name__ == "__main__":
     launch()
+def _set_cycle_progress(model: nn.Module, step: int, total_steps: int):
+    progress = 1.0 if total_steps <= 0 else min(1.0, max(0.0, step / max(1, total_steps)))
+    setter = getattr(model, "set_cycle_progress", None)
+    if callable(setter):
+        setter(progress)

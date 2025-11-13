@@ -1,0 +1,22 @@
+name: recursive_reasoning.srm@SimpleRecursiveReasoningModel
+loss:
+  name: losses@SimpleSeqLossHead
+  loss_type: stablemax_cross_entropy
+
+hidden_size: 512
+num_heads: 8
+expansion: 4
+pos_encodings: rope
+num_layers: 8
+cycles: 16
+cycles_start: 4
+cycles_end: 16
+
+puzzle_emb_ndim: 128
+shared_puzzle_emb_ndim: 512
+puzzle_emb_dropout: 0.0
+grid_token_dropout: 0.0
+puzzle_emb_len: 1
+
+rms_norm_eps: 1e-5
+forward_dtype: bfloat16

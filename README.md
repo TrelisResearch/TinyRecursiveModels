@@ -6,6 +6,9 @@
 ## Runpod One-click Template
 Option to startup up a pod with [this template](https://console.runpod.io/deploy?template=tduftocnct&ref=jmfkcdio)). Note: This is a Trelis template and is an affiliate link.
 
+> [!IMPORTANT]
+> The dataset builder now emits both `puzzle_identifiers` (per augmentation) and `base_puzzle_identifiers` (shared across all variants of a puzzle). Rebuild any existing datasets before running the new SRM configuration or shared-embedding features. When stitching multiple datasets together, pass both `--puzzle-identifiers-start` **and** `--base-puzzle-identifiers-start` for the later builds so each dataset reserves a distinct range of shared embedding IDs.
+
 ## Container Setup
 
 For containerized deployments, use the included `container-onstart.sh` script:
@@ -26,6 +29,37 @@ export GIT_USER_EMAIL="your@email.com"
 # - Install all dependencies including flash-attn and adam-atan2
 # - Auto-login to wandb if WANDB_API_KEY is set
 ```
+
+## SRM - Simple Recursive Model
+### 100k epochs adding re-arc
+```bash
+run_name="pretrain_arc2_rearc_100k_srm"
+git pull && \
+git switch simple && \
+find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/rearc-pretrain \
+  --num-aug 3 \
+  --subsets rearc \
+  --train-only-subsets rearc && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2u-pretrain \
+  --puzzle-identifiers-start 1597 \
+  --base-puzzle-identifiers-start 400 \
+  --subsets concept training2u evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
+  data_paths_test=['data/arc2u-pretrain'] \
+  arch=srm \
+  +max_examples_per_puzzle=10 \
+  +project_name='Arc2concept-aug-1000-ACT-torch' \
+  +run_name="${run_name}" > pretrain_arc2_rearc_100k_srm.log &
+```
+
 
 ## Pretraining Ablations
 ### 100k epochs adding re-arc
@@ -156,6 +190,28 @@ and add this to measure evaluation:
   eval_interval=50 \
   eval_max_augmentations=64 \
 ```
+
+## Simple Recursive Model (SRM)
+
+SRM removes the hierarchical ACT loops while keeping recursive reasoning with shared + variant puzzle embeddings. Use the new arch config after rebuilding datasets (see note above):
+
+```bash
+run_name="srm_arc2_rearc_50k"
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2-srm \
+  --subsets concept training2 evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/arc2-srm'] \
+  data_paths_test=['data/arc2-srm'] \
+  arch=srm \
+  +shared_puzzle_emb_lr=3e-4 \
+  +puzzle_emb_lr=3e-3 \
+  +run_name="${run_name}" > srm_arc2_rearc_50k.log &
+```
+
 
 **H100 Testing**
 ```bash

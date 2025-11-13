@@ -34,7 +34,9 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     batch_size: int
     seq_len: int
     puzzle_emb_ndim: int = 0
+    shared_puzzle_emb_ndim: int = 0
     num_puzzle_identifiers: int
+    num_base_puzzle_identifiers: Optional[int] = None
     vocab_size: int
 
     H_cycles: int
@@ -141,11 +143,37 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.lm_head      = CastedLinear(self.config.hidden_size, self.config.vocab_size, bias=False)
         self.q_head       = CastedLinear(self.config.hidden_size, 2, bias=True)
 
-        self.puzzle_emb_len = -(self.config.puzzle_emb_ndim // -self.config.hidden_size)  if self.config.puzzle_emb_len == 0 else self.config.puzzle_emb_len  # ceil div
+        variant_token_len = 0
+        shared_token_len = 0
         if self.config.puzzle_emb_ndim > 0:
-            # Zero init puzzle embeddings
-            self.puzzle_emb = CastedSparseEmbedding(self.config.num_puzzle_identifiers, self.config.puzzle_emb_ndim,
-                                                    batch_size=self.config.batch_size, init_std=0, cast_to=self.forward_dtype)
+            variant_token_len = self.config.puzzle_emb_len if self.config.puzzle_emb_len != 0 else -(self.config.puzzle_emb_ndim // -self.config.hidden_size)
+            variant_token_len = max(1, variant_token_len)
+            self.puzzle_emb = CastedSparseEmbedding(
+                self.config.num_puzzle_identifiers,
+                self.config.puzzle_emb_ndim,
+                batch_size=self.config.batch_size,
+                init_std=0,
+                cast_to=self.forward_dtype,
+            )
+        else:
+            self.puzzle_emb = None
+
+        if self.config.shared_puzzle_emb_ndim > 0 and self.config.num_base_puzzle_identifiers is not None:
+            shared_token_len = -(self.config.shared_puzzle_emb_ndim // -self.config.hidden_size)
+            shared_token_len = max(1, shared_token_len)
+            self.shared_puzzle_emb = CastedSparseEmbedding(
+                self.config.num_base_puzzle_identifiers,
+                self.config.shared_puzzle_emb_ndim,
+                batch_size=self.config.batch_size,
+                init_std=0,
+                cast_to=self.forward_dtype,
+            )
+        else:
+            self.shared_puzzle_emb = None
+
+        self.variant_puzzle_emb_len = variant_token_len
+        self.shared_puzzle_emb_len = shared_token_len
+        self.puzzle_emb_len = self.variant_puzzle_emb_len + self.shared_puzzle_emb_len
 
         # LM Blocks
         if self.config.pos_encodings == "rope":
@@ -170,26 +198,42 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             self.q_head.weight.zero_()
             self.q_head.bias.fill_(-5)  # type: ignore
 
-    def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor):
+    def _input_embeddings(self, input: torch.Tensor, puzzle_identifiers: torch.Tensor, base_puzzle_identifiers: Optional[torch.Tensor] = None):
         # Token embedding
         embedding = self.embed_tokens(input.to(torch.int32))
         if self.training and self.config.grid_token_dropout > 0:
             embedding = F.dropout(embedding, p=self.config.grid_token_dropout, training=True)
 
-        # Puzzle embeddings
-        if self.config.puzzle_emb_ndim > 0:
+        puzzle_tokens = []
+
+        if self.shared_puzzle_emb is not None and base_puzzle_identifiers is not None and self.shared_puzzle_emb_len > 0:
+            shared_embedding = self.shared_puzzle_emb(base_puzzle_identifiers)
+            if self.training and self.config.puzzle_emb_dropout > 0:
+                keep_prob = 1.0 - self.config.puzzle_emb_dropout
+                keep_mask = (torch.rand(shared_embedding.size(0), device=shared_embedding.device) >= self.config.puzzle_emb_dropout).to(shared_embedding.dtype)
+                shared_embedding = shared_embedding * keep_mask.unsqueeze(-1)
+                shared_embedding = shared_embedding * (1.0 / keep_prob)
+            pad_count = self.shared_puzzle_emb_len * self.config.hidden_size - shared_embedding.shape[-1]
+            if pad_count > 0:
+                shared_embedding = F.pad(shared_embedding, (0, pad_count))
+            puzzle_tokens.append(shared_embedding.view(-1, self.shared_puzzle_emb_len, self.config.hidden_size))
+
+        if self.puzzle_emb is not None:
             puzzle_embedding = self.puzzle_emb(puzzle_identifiers)
             if self.training and self.config.puzzle_emb_dropout > 0:
                 keep_prob = 1.0 - self.config.puzzle_emb_dropout
                 keep_mask = (torch.rand(puzzle_embedding.size(0), device=puzzle_embedding.device) >= self.config.puzzle_emb_dropout).to(puzzle_embedding.dtype)
                 puzzle_embedding = puzzle_embedding * keep_mask.unsqueeze(-1)
                 puzzle_embedding = puzzle_embedding * (1.0 / keep_prob)
-            
-            pad_count = self.puzzle_emb_len * self.config.hidden_size - puzzle_embedding.shape[-1]
-            if pad_count > 0:
-                puzzle_embedding = F.pad(puzzle_embedding, (0, pad_count))
 
-            embedding = torch.cat((puzzle_embedding.view(-1, self.puzzle_emb_len, self.config.hidden_size), embedding), dim=-2)
+            variant_len = max(1, self.variant_puzzle_emb_len)
+            pad_units = variant_len * self.config.hidden_size - puzzle_embedding.shape[-1]
+            if pad_units > 0:
+                puzzle_embedding = F.pad(puzzle_embedding, (0, pad_units))
+            puzzle_tokens.append(puzzle_embedding.view(-1, variant_len, self.config.hidden_size))
+
+        if puzzle_tokens:
+            embedding = torch.cat((*puzzle_tokens, embedding), dim=-2)
 
         # Position embeddings
         if self.config.pos_encodings == "learned":
@@ -217,7 +261,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         )
 
         # Input encoding
-        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
+        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"], batch.get("base_puzzle_identifiers"))
 
         # Forward iterations
         it = 0
