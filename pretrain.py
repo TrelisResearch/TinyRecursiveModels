@@ -1082,10 +1082,12 @@ def launch(hydra_config: DictConfig):
         wandb.finish()
 
 
-if __name__ == "__main__":
-    launch()
 def _set_cycle_progress(model: nn.Module, step: int, total_steps: int):
     progress = 1.0 if total_steps <= 0 else min(1.0, max(0.0, step / max(1, total_steps)))
     setter = getattr(model, "set_cycle_progress", None)
     if callable(setter):
         setter(progress)
+
+
+if __name__ == "__main__":
+    launch()
