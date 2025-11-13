@@ -9,7 +9,7 @@ expansion: 4
 pos_encodings: rope
 num_layers: 8
 cycles: 16
-cycles_start: 4
+cycles_start: 8
 cycles_end: 16
 
 puzzle_emb_ndim: 128
