@@ -30,32 +30,31 @@ export GIT_USER_EMAIL="your@email.com"
 ## Pretraining Ablations
 ### 100k epochs adding re-arc
 ```bash
-run_name="pretrain_rearc_100k"
+run_name="pretrain_arc2_rearc_100k"
 git pull && \
 git switch main && \
 find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
   --output-dir data/rearc-pretrain \
-  --train-only-subsets rearc \
-  --num-aug 0 \
-  --subsets rearc && \
+  --num-aug 3 \
+  --subsets rearc \
+  --train-only-subsets rearc && \
 uv run python3 -m dataset.build_arc_dataset \
   --input-file-prefix kaggle/combined/arc-agi \
-  --output-dir data/arc2-pretrain \
-  --subsets concept training2 evaluation2 \
+  --output-dir data/arc2u-pretrain \
+  --puzzle-identifiers-start 1597 \
+  --subsets concept training2u evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
   --config-name cfg_pretrain \
-  data_paths=['data/rearc-pretrain','data/arc2-pretrain'] \
-  data_paths_test=['data/arc2-pretrain'] \
+  data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
+  data_paths_test=['data/arc2u-pretrain'] \
   arch=trm \
-  +max_examples_per_puzzle=3 \
+  +max_examples_per_puzzle=5 \
   +project_name='Arc2concept-aug-1000-ACT-torch' \
-  +run_name="${run_name}" > pretrain_rearc_100k.log &
+  +run_name="${run_name}" > pretrain_arc2_rearc_100k.log &
 ```
-Optionally continue pretraining:
-`  load_checkpoint="checkpoints/Arc2concept-aug-1000-ACT-torch/pretrain_rearc_100k/step_118445" \`
 
 ### No translations and 256 augs only
 
