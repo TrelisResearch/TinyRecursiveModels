@@ -105,6 +105,17 @@ class ACTLossHead(nn.Module):
         setter = getattr(self.model, "set_cycle_progress", None)
         if callable(setter):
             setter(progress)
+        halt_setter = getattr(self.model, "set_halt_progress", None)
+        if callable(halt_setter):
+            halt_setter(progress)
+        halt_setter = getattr(self.model, "set_halt_progress", None)
+        if callable(halt_setter):
+            halt_setter(progress)
+
+    def set_cycle_progress(self, progress: float):
+        setter = getattr(self.model, "set_cycle_progress", None)
+        if callable(setter):
+            setter(progress)
 
 
 class SimpleSeqLossHead(nn.Module):
