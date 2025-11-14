@@ -144,6 +144,8 @@ class SimpleSeqLossHead(nn.Module):
         is_correct = (preds == labels) & mask
         seq_is_correct = is_correct.sum(-1) == loss_counts
 
+        outputs["preds"] = preds
+
         metrics = {
             "count": loss_counts.gt(0).sum(),
             "accuracy": (is_correct.to(torch.float32) / loss_divisor).sum(),
