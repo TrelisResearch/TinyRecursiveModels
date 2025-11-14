@@ -20,10 +20,10 @@ evaluators:
   - name: arc@ARC
 
 # Hyperparams - Training
-global_batch_size: 96
+global_batch_size: 128
 
 epochs: 25000
-eval_interval: 1000
+eval_interval: 10
 checkpoint_every_eval: True
 checkpoint_every_n_steps: null
 halt_max_steps_eval: null

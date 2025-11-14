@@ -37,7 +37,7 @@ def _crop(grid: np.ndarray):
 
 
 class ARC:
-    required_outputs = {"inputs", "puzzle_identifiers", "q_halt_logits", "preds"}
+    required_outputs = {"inputs", "puzzle_identifiers", "preds"}
     
     def __init__(self, data_path: str, 
         eval_metadata: PuzzleDatasetMetadata, 
@@ -74,16 +74,17 @@ class ARC:
         for collection in (batch, preds):
             for k, v in collection.items():
                 if k in self.required_outputs:
-                    if k == "q_halt_logits":
-                        q_values = v.to(torch.float64).sigmoid().cpu()
-                    else:
-                        outputs[k] = v.cpu()
-                        
-        assert q_values is not None
+                    outputs.setdefault(k, v.cpu())
+                elif k == "q_halt_logits":
+                    q_values = v.to(torch.float64).sigmoid().cpu()
+
+        if q_values is None:
+            q_values = torch.ones_like(batch["puzzle_identifiers"], dtype=torch.float64, device="cpu")
 
         # Remove padding from outputs
         mask = outputs["puzzle_identifiers"] != self.blank_identifier_id
         outputs = {k: v[mask] for k, v in outputs.items()}
+        q_values = q_values[mask]
 
         # Get predictions
         for identifier, input, pred, q in zip(outputs["puzzle_identifiers"].numpy(), outputs["inputs"].numpy(), outputs["preds"].numpy(), q_values.numpy()):
