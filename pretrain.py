@@ -1087,6 +1087,9 @@ def _set_cycle_progress(model: nn.Module, step: int, total_steps: int):
     setter = getattr(model, "set_cycle_progress", None)
     if callable(setter):
         setter(progress)
+    setter = getattr(model, "set_halt_progress", None)
+    if callable(setter):
+        setter(progress)
 
 
 if __name__ == "__main__":

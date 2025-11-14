@@ -4,7 +4,9 @@ loss:
   loss_type: stablemax_cross_entropy
 
 halt_exploration_prob: 0.1
-halt_max_steps: 16
+halt_max_steps: 32
+halt_max_steps_start: 4
+halt_max_steps_end: 32
 halt_max_steps_eval: null
 puzzle_emb_dropout: 0.0
 grid_token_dropout: 0.0
@@ -21,7 +23,8 @@ hidden_size: 512
 num_heads: 8  # min(2, hidden_size // 64)
 expansion: 4
 
-puzzle_emb_ndim: ${.hidden_size}
+puzzle_emb_ndim: 64
+shared_puzzle_emb_ndim: ${.hidden_size}
 
 pos_encodings: rope
 forward_dtype: bfloat16

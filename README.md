@@ -9,6 +9,9 @@ Option to startup up a pod with [this template](https://console.runpod.io/deploy
 > [!IMPORTANT]
 > The dataset builder now emits both `puzzle_identifiers` (per augmentation) and `base_puzzle_identifiers` (shared across all variants of a puzzle). Rebuild any existing datasets before running the new SRM configuration or shared-embedding features. When stitching multiple datasets together, pass both `--puzzle-identifiers-start` **and** `--base-puzzle-identifiers-start` for the later builds so each dataset reserves a distinct range of shared embedding IDs.
 
+> [!NOTE]
+> `cfg_pretrain.yaml` targets the original TRM (ACT) architecture. Use `cfg_pretrain_srm.yaml` for SRM runs (set `arch=srm` when needed).
+
 ## Container Setup
 
 For containerized deployments, use the included `container-onstart.sh` script:
@@ -28,6 +31,35 @@ export GIT_USER_EMAIL="your@email.com"
 # - Install PyTorch with CUDA 12.6 support
 # - Install all dependencies including flash-attn and adam-atan2
 # - Auto-login to wandb if WANDB_API_KEY is set
+```
+
+## TRM with scheduling
+```bash
+run_name="pretrain_arc2_rearc_100k_trm_scheduled_shared_emb_TEST"
+git pull && \
+git switch simple && \
+find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/rearc-pretrain \
+  --num-aug 3 \
+  --subsets rearc \
+  --train-only-subsets rearc && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2u-pretrain \
+  --puzzle-identifiers-start 1597 \
+  --base-puzzle-identifiers-start 400 \
+  --subsets concept training2u evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain_srm \
+  data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
+  data_paths_test=['data/arc2u-pretrain'] \
+  arch=trm \
+  +max_examples_per_puzzle=10 \
+  +project_name='Arc2concept-aug-1000-ACT-torch' \
+  +run_name="${run_name}" > pretrain_arc2_rearc_100k_trm_scheduled_shared_emb_TEST.log &
 ```
 
 ## SRM - Simple Recursive Model
@@ -51,7 +83,7 @@ uv run python3 -m dataset.build_arc_dataset \
   --subsets concept training2u evaluation2 \
   --test-set-name evaluation2 && \
 PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
-  --config-name cfg_pretrain \
+  --config-name cfg_pretrain_srm \
   data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
   data_paths_test=['data/arc2u-pretrain'] \
   arch=srm \
@@ -59,7 +91,6 @@ PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d 
   +project_name='Arc2concept-aug-1000-ACT-torch' \
   +run_name="${run_name}" > pretrain_arc2_rearc_100k_srm.log &
 ```
-
 
 ## Pretraining Ablations
 ### 100k epochs adding re-arc

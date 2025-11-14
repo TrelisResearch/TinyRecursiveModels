@@ -56,6 +56,8 @@ class TinyRecursiveReasoningModel_ACTV1Config(BaseModel):
     
     # Halting Q-learning config
     halt_max_steps: int
+    halt_max_steps_start: Optional[int] = None
+    halt_max_steps_end: Optional[int] = None
     halt_exploration_prob: float
     halt_max_steps_eval: Optional[int] = None
 
@@ -291,6 +293,9 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
         super().__init__()
         self.config = TinyRecursiveReasoningModel_ACTV1Config(**config_dict)
         self.inner = TinyRecursiveReasoningModel_ACTV1_Inner(self.config)
+        self._halt_min = max(1, self.config.halt_max_steps_start or self.config.halt_max_steps)
+        self._halt_max = max(self._halt_min, self.config.halt_max_steps_end or self.config.halt_max_steps)
+        self._halt_current = self._halt_max
 
         if self.config.lora_rank > 0:
             enable_lora_for_linears(
@@ -339,7 +344,10 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
         with torch.no_grad():
             # Step
             new_steps = new_steps + 1
-            halt_limit = self.config.halt_max_steps if self.training or (self.config.halt_max_steps_eval is None) else self.config.halt_max_steps_eval
+            if self.training:
+                halt_limit = self._halt_current
+            else:
+                halt_limit = self.config.halt_max_steps_eval or self._halt_max
             is_last_step = new_steps >= halt_limit
             
             halted = is_last_step
@@ -368,3 +376,12 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
                     outputs["target_q_continue"] = torch.sigmoid(torch.where(is_last_step, next_q_halt_logits, torch.maximum(next_q_halt_logits, next_q_continue_logits)))
 
         return TinyRecursiveReasoningModel_ACTV1Carry(new_inner_carry, new_steps, halted, new_current_data), outputs
+
+    def set_halt_progress(self, progress: float):
+        progress = float(max(0.0, min(1.0, progress)))
+        if self._halt_max == self._halt_min:
+            self._halt_current = self._halt_min
+            return
+        span = self._halt_max - self._halt_min
+        target = self._halt_min + span * progress
+        self._halt_current = max(1, int(round(target)))
