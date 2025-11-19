@@ -56,6 +56,48 @@ PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d 
   +run_name="${run_name}" > pretrain_arc2_rearc_100k.log &
 ```
 
+### 100k epochs adding re-arc + 100k ctd pre-training
+```bash
+run_name="pretrain_arc2_rearc_200k"
+git pull && \
+git switch main && \
+find kaggle/combined -name '*.json.gz' -print0 | xargs -0 gunzip -f && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/rearc-pretrain \
+  --num-aug 3 \
+  --subsets rearc \
+  --train-only-subsets rearc && \
+uv run python3 -m dataset.build_arc_dataset \
+  --input-file-prefix kaggle/combined/arc-agi \
+  --output-dir data/arc2u-pretrain \
+  --puzzle-identifiers-start 1597 \
+  --subsets concept training2u evaluation2 \
+  --test-set-name evaluation2 && \
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
+  load_checkpoint="checkpoints/Arc2concept-aug-1000-ACT-torch/pretrain_arc2_rearc_100k/step_737320" \
+  data_paths_test=['data/arc2u-pretrain'] \
+  arch=trm \
+  +max_examples_per_puzzle=5 \
+  +project_name='Arc2concept-aug-1000-ACT-torch' \
+  +run_name="${run_name}" > pretrain_arc2_rearc_200k.log &
+```
+and continued pretraining with the same data and dataset:
+```bash
+run_name="pretrain_arc2_rearc_200k"
+PYTHONUNBUFFERED=1 nohup uv run torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+  --config-name cfg_pretrain \
+  data_paths=['data/rearc-pretrain','data/arc2u-pretrain'] \
+  load_checkpoint="checkpoints/Arc2concept-aug-1000-ACT-torch/pretrain_arc2_rearc_100k/step_737320" \
+  data_paths_test=['data/arc2u-pretrain'] \
+  arch=trm \
+  +max_examples_per_puzzle=5 \
+  +project_name='Arc2concept-aug-1000-ACT-torch' \
+  +run_name="${run_name}" > pretrain_arc2_rearc_200k.log &
+```
+
 ### No translations and 256 augs only
 
 ```bash
